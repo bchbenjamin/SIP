@@ -38,7 +38,7 @@ This loads up the base YOLO nano model and opens your webcam feed.
 
 1. Open `train_weapon.py`.
 2. Update the `workspace_name` and `project_name` variables on line 26/27 with the exact names from the Roboflow dataset URL you choose to use.
-3. Your Roboflow Private Key (`mCMBhfrder6POXLGvIll`) has already been injected into the script. Keep it confidential.
+3. Your Roboflow Private Key needs to be injected into the script. Keep it confidential.
 4. Run the fine-tuning script:
    ```bash
    python train_weapon.py
