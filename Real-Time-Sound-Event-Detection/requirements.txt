@@ -6,3 +6,4 @@ numpy
 sounddevice
 pandas
 pyaudio
+python-dotenv

@@ -22,9 +22,10 @@ Before running the script, ensure you have the following dependencies installed:
 ## Usage
 
 1. Clone the repository or download the script `app.py`.
-2. Install the required dependencies.
-3. Make sure you have a pre-trained YOLOv8 model (`.pt` file) and provide its path in the script.
-4. Run the script using the following command:
+2. Install the required dependencies (`pip install -r requirements.txt` or manually install).
+3. Copy `.env.example` to `.env` and fill in necessary configuration such as `CAMERA_INDEX` and Roboflow credentials.
+4. Make sure you have a pre-trained YOLOv8 model (`.pt` file) and provide its path in the script.
+5. Run the script using the following command:
 python yolov8.py
 
 5. The webcam will activate, and you'll see live video with object detection overlays.

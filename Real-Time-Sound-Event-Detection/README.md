@@ -20,9 +20,17 @@ At this point you have only to execute the demo by running the following command
 python3 ./sound_event_detection.py
 ```
 
-### Change the classes to detect
+### Change configuration via .env
 
-To modify the classes to visualize in the plot, change the event's ids in the file `sound_event_detection.py` at the line 16:
+To customize configuration, copy the example environment file:
+```bash
+cp .env.example .env
+```
+Inside `.env` you can change the events to visualize by modifying the `YAMNET_CLASSES` variable:
+
+```env
+YAMNET_CLASSES=0,132,420,494
+```
 
 ```python
 plt_classes = [0,132,420,494] # Speech, Music, Explosion, Silence 

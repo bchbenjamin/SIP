@@ -3,6 +3,10 @@ import pyaudio
 from matplotlib import pyplot as plt
 import pandas as pd
 import sounddevice as sd
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from keras_yamnet import params
 from keras_yamnet.yamnet import YAMNet, class_names
@@ -13,17 +17,19 @@ from plot import Plotter
 if __name__ == "__main__":
 
     ################### SETTINGS ###################
-    plt_classes = [0,132,420,494] # Speech, Music, Explosion, Silence 
+    plt_classes_env = os.getenv("YAMNET_CLASSES", "0,132,420,494")
+    plt_classes = [int(c.strip()) for c in plt_classes_env.split(",")] # Speech, Music, Explosion, Silence 
     class_labels=True
     FORMAT = pyaudio.paFloat32
     CHANNELS = 1
     RATE = params.SAMPLE_RATE
-    WIN_SIZE_SEC = 0.975
+    WIN_SIZE_SEC = float(os.getenv("WIN_SIZE_SEC", "0.975"))
     CHUNK = int(WIN_SIZE_SEC * RATE)
-    RECORD_SECONDS = 500
+    RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "500"))
 
     print(sd.query_devices())
-    MIC = None
+    mic_env = os.getenv("MIC_INDEX")
+    MIC = int(mic_env) if mic_env is not None else None
 
     #################### MODEL #####################
     

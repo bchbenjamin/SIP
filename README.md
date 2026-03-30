@@ -23,8 +23,15 @@ This sub-project uses Ultralytics YOLOv8. By default, it runs the `yolov8n.pt` b
    ```
 3. *(If not already installed)* Install the necessary dependencies:
    ```bash
-   pip install ultralytics opencv-python roboflow
+   ```bash
+   pip install ultralytics opencv-python roboflow python-dotenv
    ```
+
+4. Create a `.env` file based on the example:
+   ```bash
+   cp .env.example .env
+   ```
+   *Edit `.env` to customize settings like the `CAMERA_INDEX` and model configuration!*
 
 ### Running the Base (Out-Of-The-Box) Model
 
@@ -73,8 +80,14 @@ This error indicates a Python version mismatch. Standard `tensorflow` distributi
    ```bash
    cd Real-Time-Sound-Event-Detection
    venv\Scripts\activate
-   pip install tensorflow keras librosa matplotlib numpy sounddevice pandas pyaudio
+   pip install tensorflow keras librosa matplotlib numpy sounddevice pandas pyaudio python-dotenv
    ```
+
+5. Create a `.env` file for your configuration:
+   ```bash
+   cp .env.example .env
+   ```
+   *Here you can adjust params such as the microphone index `MIC_INDEX` or the specific output classes `YAMNET_CLASSES` you'd like to identify in real-time.*
 
 ### Running the Sound Event Detection
 

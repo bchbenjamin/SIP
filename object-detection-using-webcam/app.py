@@ -1,8 +1,17 @@
-# pip install opencv-python
+# pip install opencv-python python-dotenv
 
 import os
+from dotenv import load_dotenv
 import cv2
 from ultralytics import YOLO
+
+# Load environment variables
+load_dotenv()
+
+# Configuration from .env
+CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0"))
+CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.8"))
+
 
 # Load the fine-tuned model if available, else load base nano model
 fine_tuned_path = 'runs/detect/train/weights/best.pt'
@@ -17,14 +26,14 @@ else:
 
 model = YOLO(model_path)
 print(model.names)
-webcamera = cv2.VideoCapture(0)
+webcamera = cv2.VideoCapture(CAMERA_INDEX)
 # webcamera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
 # webcamera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 while True:
     success, frame = webcamera.read()
     
-    results = model.track(frame, classes=0, conf=0.8, imgsz=480)
+    results = model.track(frame, classes=0, conf=CONFIDENCE_THRESHOLD, imgsz=480)
     cv2.putText(frame, f"Total: {len(results[0].boxes)}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
     cv2.imshow("Live Camera", results[0].plot())
 
