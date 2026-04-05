@@ -1,4 +1,4 @@
-# pip install opencv-python python-dotenv
+# pip install ultralytics opencv-python roboflow python-dotenv lapx
 
 import os
 from dotenv import load_dotenv
@@ -26,13 +26,50 @@ else:
 
 model = YOLO(model_path)
 print(model.names)
-webcamera = cv2.VideoCapture(CAMERA_INDEX)
-# webcamera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-# webcamera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+
+def open_camera(preferred_index):
+    """
+    Try to open a working camera using DirectShow.
+    Starts with the preferred index, then iterates through 0-4.
+    Warms up the camera by discarding initial black/empty frames.
+    Returns an opened VideoCapture or raises SystemExit.
+    """
+    import numpy as np
+    candidates = [preferred_index] + [i for i in range(5) if i != preferred_index]
+    for idx in candidates:
+        print(f"Trying camera index {idx} (CAP_DSHOW)...")
+        cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            print(f"  → Index {idx}: could not open.")
+            cap.release()
+            continue
+        # Warm up: read up to 30 frames and check for non-black content
+        for _ in range(30):
+            ret, frame = cap.read()
+            if ret and frame is not None and np.mean(frame) > 1.0:
+                print(f"  → Index {idx}: OK (shape={frame.shape}). Using this camera.")
+                return cap
+        print(f"  → Index {idx}: opened but no usable frames (IR/virtual camera).")
+        cap.release()
+    print("[ERROR] No usable camera found. Check that your webcam is connected and not in use by another app.")
+    raise SystemExit(1)
+
+
+webcamera = open_camera(CAMERA_INDEX)
+
+# Create window up front so it appears on top
+cv2.namedWindow("Live Camera", cv2.WINDOW_NORMAL)
+cv2.setWindowProperty("Live Camera", cv2.WND_PROP_TOPMOST, 1)
+print("Camera ready. Press 'q' inside the Live Camera window to quit.")
 
 while True:
     success, frame = webcamera.read()
-    
+
+    if not success or frame is None:
+        print("[WARN] Failed to grab frame, skipping...")
+        continue
+
     results = model.track(frame, classes=0, conf=CONFIDENCE_THRESHOLD, imgsz=480)
     cv2.putText(frame, f"Total: {len(results[0].boxes)}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
     cv2.imshow("Live Camera", results[0].plot())
@@ -42,6 +79,7 @@ while True:
 
 webcamera.release()
 cv2.destroyAllWindows()
+
 
 # For Realsense camera
    # def initialize_realsense():
