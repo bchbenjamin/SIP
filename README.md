@@ -19,17 +19,18 @@ This sub-project uses Ultralytics YOLOv8. By default, it runs the `yolov8n.pt` b
    ```
 2. Activate the virtual environment:
    ```bash
+   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
    venv\Scripts\activate
    ```
 3. *(If not already installed)* Install the necessary dependencies:
    ```bash
-   ```bash
-   pip install ultralytics opencv-python roboflow python-dotenv
+   python -m pip install ultralytics opencv-python roboflow python-dotenv lapx
    ```
+   > **Windows note:** `lapx` is required on Windows as a drop-in replacement for `lap` (used by the YOLO tracker). The standard `lap` package has no Windows binary wheels.
 
 4. Create a `.env` file based on the example:
-   ```bash
-   cp .env.example .env
+   ```cmd
+   copy .env.example .env
    ```
    *Edit `.env` to customize settings like the `CAMERA_INDEX` and model configuration!*
 
@@ -80,12 +81,12 @@ This error indicates a Python version mismatch. Standard `tensorflow` distributi
    ```bash
    cd Real-Time-Sound-Event-Detection
    venv\Scripts\activate
-   pip install tensorflow keras librosa matplotlib numpy sounddevice pandas pyaudio python-dotenv
+   python -m pip install tensorflow keras librosa matplotlib numpy sounddevice pandas pyaudio python-dotenv
    ```
 
 5. Create a `.env` file for your configuration:
-   ```bash
-   cp .env.example .env
+   ```cmd
+   copy .env.example .env
    ```
    *Here you can adjust params such as the microphone index `MIC_INDEX` or the specific output classes `YAMNET_CLASSES` you'd like to identify in real-time.*
 
@@ -107,10 +108,10 @@ For posterity, here is a breakdown of the specific steps taken to establish this
 1. **Cloned the Repositories:**
    Ran `git clone https://github.com/codershiyar/object-detection-using-webcam.git` and `git clone https://github.com/robertanto/Real-Time-Sound-Event-Detection.git`.
 2. **Setup Object Detection Venv:**
-   Created a local `venv` and used `pip` to install `ultralytics`, `opencv-python`, and `roboflow`.
+   Created a local `venv` and used `python -m pip` to install `ultralytics`, `opencv-python`, and `roboflow`.
 3. **Created Weapon Fine-Tuning Script:**
    Created a new python script `train_weapon.py` leveraging the `roboflow` Python pip package. It authorizes with the provided Roboflow API Key, pulls the YOLOv8-formatted dataset, and spawns the `YOLOv8n` dataset trainer for 10 epochs targeting the CPU. 
 4. **Modified WebCam Script (`app.py`):**
    Updated `app.py` to use `os.path.exists()` logic to dynamically check if the fine-tuned weights (`runs/detect/train/weights/best.pt`) existed. If found, it routes traffic to the weapons model. Otherwise, it gracefully falls back to the generalized `yolov8n.pt` base model.
 5. **Setup Audio Venv:**
-   Attempted to construct a standard `venv` and deployed `pip install` on the required libraries (`tensorflow`, `pyaudio`, etc.) inside the audio project. Documented the known TensorFlow compatibility workaround utilizing an older version of Python.
+   Attempted to construct a standard `venv` and deployed `python -m pip install` on the required libraries (`tensorflow`, `pyaudio`, etc.) inside the audio project. Documented the known TensorFlow compatibility workaround utilizing an older version of Python.

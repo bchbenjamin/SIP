@@ -11,7 +11,7 @@ Execute the following commands to setup you project.
 ```bash 
 git clone https://github.com/robertanto/Real-Time-Sound-Event-Detection.git
 cd Real-Time-Sound-Event-Detection
-pip3 install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 At this point you have only to execute the demo by running the following command:
@@ -23,8 +23,8 @@ python3 ./sound_event_detection.py
 ### Change configuration via .env
 
 To customize configuration, copy the example environment file:
-```bash
-cp .env.example .env
+```cmd
+copy .env.example .env
 ```
 Inside `.env` you can change the events to visualize by modifying the `YAMNET_CLASSES` variable:
 
