@@ -1,12 +1,8 @@
-Here's everything organized by category — GitHub repos first, then datasets.
+# Researched Data
 
----
-
-## GitHub Repositories for Laptop Prototyping
+## GitHub Repositories for Laptop Prototyping [03-04-2026]
 
 ### Camera (Visual Detection)
-
-**Start here — cleanest and most beginner-friendly:**
 
 | Repo | Why it's useful |
 |---|---|
