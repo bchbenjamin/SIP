@@ -1,0 +1,46 @@
+package com.sip.backend.entity;
+
+import jakarta.persistence.*;
+import java.time.OffsetDateTime;
+
+@Entity
+@Table(name = "refresh_tokens")
+public class RefreshToken {
+    @Id
+    public String id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    public User user;
+
+    @Column(name = "token_hash", nullable = false, unique = true)
+    public String tokenHash;
+
+    @Column(name = "expires_at", nullable = false)
+    public OffsetDateTime expiresAt;
+
+    @Column(name = "revoked_at")
+    public OffsetDateTime revokedAt;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    public OffsetDateTime createdAt;
+
+    // Returned only to the issuing request; never persisted to the database.
+    @Transient
+    public String rawToken;
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = OffsetDateTime.now();
+    }
+
+    public boolean isExpired() {
+        return expiresAt == null || !OffsetDateTime.now().isBefore(expiresAt);
+    }
+
+    public boolean isValid() {
+        return revokedAt == null && !isExpired();
+    }
+
+    public RefreshToken() {}
+}
