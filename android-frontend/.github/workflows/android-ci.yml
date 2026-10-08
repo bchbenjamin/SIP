@@ -1,0 +1,62 @@
+name: Android CI
+
+on:
+  push:
+    branches: ["master", "agent/hardened-release", "agent/backend-hardening"]
+  pull_request:
+    branches: ["master"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Generate Gradle wrapper
+        working-directory: android
+        run: gradle wrapper --gradle-version 8.9 --distribution-type bin
+
+      - name: Build and test
+        working-directory: android
+        env:
+          SIP_API_BASE_URL: "http://10.0.2.2:8080/"
+        run: ./gradlew --no-daemon clean testDebugUnitTest assembleDebug
+
+      - name: Package source
+        run: |
+          rm -rf package
+          mkdir package
+          zip -r package/SIP-Android-hardened.zip . \
+            -x ".git/*" ".gradle/*" "*/build/*" "package/*" "*.hprof"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sip-guardian-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: sip-android-hardened-source
+          path: package/SIP-Android-hardened.zip
+          if-no-files-found: error
+          retention-days: 14

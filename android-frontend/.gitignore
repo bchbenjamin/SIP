@@ -1,0 +1,29 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Android / Gradle
+.gradle/
+.idea/
+build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.iml
+local.properties
+
+# Generated / signing material
+*.jks
+*.keystore
+*.hprof
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local backups
+.backup-sip-android/

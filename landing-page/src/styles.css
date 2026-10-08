@@ -1,0 +1,87 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@theme inline {
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+
+  --color-background: var(--void);
+  --color-foreground: var(--paper);
+  --color-card: var(--graphite);
+  --color-card-foreground: var(--paper);
+  --color-popover: var(--carbon);
+  --color-popover-foreground: var(--paper);
+  --color-primary: var(--ember);
+  --color-primary-foreground: var(--void);
+  --color-secondary: var(--carbon);
+  --color-secondary-foreground: var(--paper);
+  --color-muted: var(--carbon);
+  --color-muted-foreground: var(--ash);
+  --color-accent: var(--ember);
+  --color-accent-foreground: var(--void);
+  --color-destructive: var(--ember);
+  --color-destructive-foreground: var(--void);
+  --color-border: var(--iron);
+  --color-input: var(--iron);
+  --color-ring: var(--ember);
+
+  --color-void: var(--void);
+  --color-carbon: var(--carbon);
+  --color-graphite: var(--graphite);
+  --color-iron: var(--iron);
+  --color-slate: var(--slate);
+  --color-pewter: var(--pewter);
+  --color-steel: var(--steel);
+  --color-ash: var(--ash);
+  --color-fog: var(--fog);
+  --color-chalk: var(--chalk);
+  --color-paper: var(--paper);
+  --color-ember: var(--ember);
+
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  --void: #000000;
+  --carbon: #111111;
+  --graphite: #191919;
+  --iron: #202020;
+  --slate: #3a3a3a;
+  --pewter: #505050;
+  --steel: #606060;
+  --ash: #7e7e7e;
+  --fog: #b4b4b4;
+  --chalk: #d9d9d9;
+  --paper: #eeeeee;
+  --ember: #da5c2c;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body {
+    background-color: var(--void);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--ember);
+    color: var(--void);
+  }
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
