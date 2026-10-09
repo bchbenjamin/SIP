@@ -5,7 +5,8 @@ WORKDIR /app
 
 # Copy Gradle wrapper and build config first (for dependency caching)
 COPY gradlew gradle/wrapper/gradle-wrapper.properties ./
-RUN wget -q https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -O gradle-wrapper.jar
+RUN curl -fsL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle-wrapper.jar \
+    && test $(stat -c%s gradle-wrapper.jar) -ge 40000
 COPY build.gradle settings.gradle ./
 
 # Cache Gradle dependencies
