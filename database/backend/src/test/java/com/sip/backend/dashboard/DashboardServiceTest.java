@@ -31,14 +31,14 @@ class DashboardServiceTest {
     }
 
     @Test
-    void activeThreatCountIncludesOngoingDeterrence() {
+    void activeThreatCountIncludesEscalatedIncidents() {
         NodeRepository nodes = mock(NodeRepository.class);
         IncidentRepository incidents = mock(IncidentRepository.class);
         IncidentMapper mapper = mock(IncidentMapper.class);
         when(nodes.count()).thenReturn(1L);
         when(nodes.countByStatus(Node.NodeStatus.ONLINE)).thenReturn(1L);
         when(incidents.countByState(any(Incident.IncidentState.class))).thenReturn(0L);
-        when(incidents.countByState(Incident.IncidentState.DETERRENCE_ACTIVE)).thenReturn(2L);
+        when(incidents.countByState(Incident.IncidentState.ESCALATED)).thenReturn(2L);
         when(incidents.findTop10ByOrderByCreatedAtDesc()).thenReturn(java.util.List.of());
 
         var dashboard = new DashboardService(nodes, incidents, mapper).getDashboard();
@@ -46,5 +46,4 @@ class DashboardServiceTest {
         assertEquals(2L, dashboard.activeThreats);
         assertEquals("RED", dashboard.systemHealth);
     }
-
 }

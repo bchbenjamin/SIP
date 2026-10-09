@@ -13,6 +13,7 @@ public class MqttConfigProperties {
     private String clientId = "sip-backend";
     private int commandTimeout = 30;
     private int keepAliveInterval = 60;
+    private boolean useTls = false;
 
     public String getBrokerUrl() { return brokerUrl; }
     public void setBrokerUrl(String brokerUrl) { this.brokerUrl = brokerUrl; }
@@ -26,4 +27,6 @@ public class MqttConfigProperties {
     public void setCommandTimeout(int commandTimeout) { this.commandTimeout = commandTimeout; }
     public int getKeepAliveInterval() { return keepAliveInterval; }
     public void setKeepAliveInterval(int keepAliveInterval) { this.keepAliveInterval = keepAliveInterval; }
+    public boolean isUseTls() { return useTls; }
+    public void setUseTls(boolean useTls) { this.useTls = useTls; }
 }

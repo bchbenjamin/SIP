@@ -14,6 +14,7 @@ import base64
 import json
 import logging
 import os
+import subprocess
 import sys
 import time
 from collections import deque
@@ -105,7 +106,7 @@ class DeterrenceController:
         if self.mode == "siren" and self.siren_file and os.path.exists(self.siren_file):
             logging.info("Deterrence siren triggered for %s", ", ".join(labels))
             # Execute actual audio playback on Raspberry Pi
-            os.system(f"aplay {self.siren_file} &")
+            subprocess.run(["aplay", self.siren_file], check=False, capture_output=True)
         elif self.mode == "led":
             logging.info("Deterrence LED triggered for %s", ", ".join(labels))
         else:

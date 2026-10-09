@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 /**
  * Allows Pi devices to authenticate via X-API-Key header.
@@ -36,7 +38,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
         // Only protect device-facing endpoints
         if (path.startsWith("/api/v1/incidents") ||
-            path.startsWith("/api/v1/nodes/") && path.contains("/heartbeat")) {
+            path.startsWith("/api/v1/nodes/") && path.endsWith("/heartbeat")) {
 
             // Skip if already authenticated via JWT (Android app)
             if (request.getUserPrincipal() != null) {
@@ -47,7 +49,8 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             // Check API key
             String presentedKey = request.getHeader(API_KEY_HEADER);
             if (validApiKey != null && !validApiKey.isBlank() &&
-                validApiKey.equals(presentedKey)) {
+                MessageDigest.isEqual(validApiKey.getBytes(StandardCharsets.UTF_8),
+                                      presentedKey.getBytes(StandardCharsets.UTF_8))) {
                 filterChain.doFilter(request, response);
                 return;
             }

@@ -51,10 +51,11 @@ public class PiAuthenticationService {
         Optional<Node> nodeOpt = nodeRepository.findById(nodeId);
         if (nodeOpt.isEmpty()) return false;
         Node node = nodeOpt.get();
-        // deviceSecret is stored in the Node entity (or we use nodeId as the shared key if not set)
-        String deviceSecret = node.getDeviceSecret() != null ? node.getDeviceSecret() : nodeId;
+        String deviceSecret = node.deviceSecret != null ? node.deviceSecret : nodeId;
         Optional<String> expectedToken = deriveNodeCredential(nodeId, deviceSecret);
-        return expectedToken.map(t -> MessageDigest.isEqual(t.getBytes(StandardCharsets.UTF_8), presentedToken.getBytes(StandardCharsets.UTF_8))).orElse(false);
+        return expectedToken.map(t ->
+            MessageDigest.isEqual(t.getBytes(StandardCharsets.UTF_8), presentedToken.getBytes(StandardCharsets.UTF_8))
+        ).orElse(false);
     }
 
     /**
@@ -66,7 +67,7 @@ public class PiAuthenticationService {
         Optional<Node> nodeOpt = nodeRepository.findById(nodeId);
         if (nodeOpt.isEmpty()) return false;
         Node node = nodeOpt.get();
-        String storedSecret = node.getDeviceSecret() != null ? node.getDeviceSecret() : nodeId;
+        String storedSecret = node.deviceSecret != null ? node.deviceSecret : nodeId;
         return MessageDigest.isEqual(
                 storedSecret.getBytes(StandardCharsets.UTF_8),
                 rawSecret.getBytes(StandardCharsets.UTF_8)

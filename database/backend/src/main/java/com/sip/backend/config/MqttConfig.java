@@ -1,74 +1,42 @@
 package com.sip.backend.config;
 
 import com.sip.backend.config.MqttConfigProperties;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.integration.channel.DirectChannel;
-import org.springframework.integration.core.MessageProducer;
-import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory;
-import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
-import org.springframework.integration.mqtt.inbound.MqttPahoMessageReceiver;
-import org.springframework.integration.mqtt.outbound.MqttPahoMessageHandler;
-import org.springframework.integration.mqtt.support.DefaultMqttHeaderMapper;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.core.MessageHandler;
 
 @Configuration
 @ConditionalOnProperty(name = "app.mqtt.enabled", havingValue = "true", matchIfMissing = false)
 public class MqttConfig {
 
-    public static final String MQTT_INBOUND_CHANNEL = "mqttInboundChannel";
-    public static final String MQTT_OUTBOUND_CHANNEL = "mqttOutboundChannel";
-    public static final String MQTT_COMMAND_CHANNEL = "mqttCommandChannel";
+    private static final Logger log = LoggerFactory.getLogger(MqttConfig.class);
 
     @Bean
-    public MqttPahoClientFactory mqttClientFactory(MqttConfigProperties props) {
-        DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
-        factory.setServerURIs(props.getBrokerUrl());
+    public MqttConnectOptions mqttConnectOptions(MqttConfigProperties props) {
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setServerURIs(new String[]{props.getBrokerUrl()});
+        options.setKeepAliveInterval(props.getKeepAliveInterval());
+        options.setConnectionTimeout(props.getCommandTimeout());
+        options.setAutomaticReconnect(true);
+
         if (props.getUsername() != null && !props.getUsername().isBlank()) {
-            factory.setUserName(props.getUsername());
+            options.setUserName(props.getUsername());
         }
         if (props.getPassword() != null && !props.getPassword().isBlank()) {
-            factory.setPassword(props.getPassword());
+            options.setPassword(props.getPassword().toCharArray());
         }
-        factory.setKeepAliveInterval(props.getKeepAliveInterval());
-        factory.setConnectionTimeout(props.getCommandTimeout());
-        return factory;
-    }
 
-    @Bean
-    public MessageChannel mqttInboundChannel() {
-        return new DirectChannel();
-    }
+        if (props.isUseTls()) {
+            java.util.Properties sslProps = new java.util.Properties();
+            sslProps.setProperty("ssl.protocol", "TLSv1.2");
+            sslProps.setProperty("ssl.handshake.timeout", "30");
+            options.setSSLProperties(sslProps);
+        }
 
-    @Bean
-    public MessageChannel mqttOutboundChannel() {
-        return new DirectChannel();
-    }
-
-    @Bean
-    public MessageChannel mqttCommandChannel() {
-        return new DirectChannel();
-    }
-
-    @Bean
-    public MessageProducer mqttInbound(MqttPahoClientFactory factory, MqttConfigProperties props) {
-        MqttPahoMessageReceiver receiver = new MqttPahoMessageReceiver();
-        receiver.setClientFactory(factory);
-        receiver.setClientId(props.getClientId() + "-inbound");
-        receiver.setOutputChannel(mqttInboundChannel());
-        receiver.setTopicExpression(payload -> "sip/+/incidents");
-        receiver.setHeaderMapper(new DefaultMqttHeaderMapper());
-        return receiver;
-    }
-
-    @Bean
-    public MessageHandler mqttOutbound(MqttPahoClientFactory factory, MqttConfigProperties props) {
-        MqttPahoMessageHandler handler = new MqttPahoMessageHandler();
-        handler.setClientFactory(factory);
-        handler.setDefaultTopic("sip");
-        handler.setAsync(true);
-        return handler;
+        log.info("MQTT configured for broker: {} (TLS={})", props.getBrokerUrl(), props.isUseTls());
+        return options;
     }
 }

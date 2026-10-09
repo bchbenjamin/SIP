@@ -1,30 +1,38 @@
 package com.sip.backend.controller;
 
-import com.sip.backend.dto.PiIncidentPayload;
+import com.sip.backend.dto.*;
 import com.sip.backend.entity.Incident;
 import com.sip.backend.entity.Incident.IncidentState;
+import com.sip.backend.incident.IncidentService;
 import com.sip.backend.repository.IncidentRepository;
 import com.sip.backend.service.PiIncidentIngestionService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/incidents")
 public class IncidentController {
 
     private final IncidentRepository incidentRepository;
+    private final IncidentService incidentService;
     private final PiIncidentIngestionService ingestionService;
 
-    public IncidentController(IncidentRepository incidentRepository, PiIncidentIngestionService ingestionService) {
+    public IncidentController(IncidentRepository incidentRepository,
+                              IncidentService incidentService,
+                              PiIncidentIngestionService ingestionService) {
         this.incidentRepository = incidentRepository;
+        this.incidentService = incidentService;
         this.ingestionService = ingestionService;
     }
 
     // ── Pi-facing REST ingestion (when MQTT is unavailable) ──────────────────
-
     @PostMapping
     public ResponseEntity<?> ingestIncident(@RequestBody PiIncidentPayload payload) {
         try {
@@ -35,30 +43,40 @@ public class IncidentController {
         }
     }
 
-    // ── Android/operator endpoints ───────────────────────────────────────────
-
+    // ── Android/operator listing & detail ───────────────────────────────────
     @GetMapping
-    public ResponseEntity<Page<Incident>> listIncidents(
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(incidentRepository.findAllByOrderByCreatedAtDesc(pageable));
+    public ResponseEntity<PageDto<IncidentDto>> getIncidents(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String threatType,
+            @RequestParam(required = false) String nodeId,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        return ResponseEntity.ok(incidentService.getIncidents(page, size, state, threatType, nodeId, from, to));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Incident> getIncident(@PathVariable String id) {
-        return incidentRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<IncidentDto> getIncident(@PathVariable String id) {
+        return ResponseEntity.ok(incidentService.getIncident(id));
     }
 
-    @PutMapping("/{id}/verify")
-    public ResponseEntity<?> verify(@PathVariable String id) {
-        return incidentRepository.findById(id).map(incident -> {
-            incident.state = IncidentState.VERIFIED;
-            incidentRepository.save(incident);
-            return ResponseEntity.ok(incident);
-        }).orElse(ResponseEntity.notFound().build());
+    // ── Human verification ───────────────────────────────────────────────────
+    @PostMapping("/{id}/verify")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    public ResponseEntity<IncidentDto> verify(
+            @PathVariable String id,
+            @Valid @RequestBody VerificationRequest request,
+            Authentication auth) {
+        return ResponseEntity.ok(incidentService.verify(id, request, auth.getName()));
     }
 
+    @GetMapping("/{id}/events")
+    public ResponseEntity<List<AuditEventDto>> getIncidentEvents(@PathVariable String id) {
+        return ResponseEntity.ok(incidentService.getIncidentEvents(id));
+    }
+
+    // ── Legacy state transitions (deprecated — use /verify) ──────────────────
     @PutMapping("/{id}/reject")
     public ResponseEntity<?> reject(@PathVariable String id) {
         return incidentRepository.findById(id).map(incident -> {

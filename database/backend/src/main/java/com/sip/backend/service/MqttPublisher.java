@@ -1,19 +1,24 @@
 package com.sip.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sip.backend.config.MqttConfig;
+import com.sip.backend.config.MqttConfigProperties;
 import com.sip.backend.entity.Command;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
-import org.springframework.integration.mqtt.outbound.MqttPahoMessageHandler;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @ConditionalOnProperty(name = "app.mqtt.enabled", havingValue = "true", matchIfMissing = false)
@@ -21,16 +26,59 @@ public class MqttPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(MqttPublisher.class);
     private static final int QOS = 1;
+    private static final int OPERATION_TIMEOUT_SECS = 30;
 
-    private final MqttPahoMessageHandler handler;
+    private final MqttConfigProperties props;
+    private final MqttConnectOptions connectOptions;
     private final ObjectMapper objectMapper;
+    private MqttClient mqttClient;
 
-    public MqttPublisher(MqttPahoClientFactory factory, ObjectMapper objectMapper) {
-        this.handler = new MqttPahoMessageHandler();
-        this.handler.setClientFactory(factory);
-        this.handler.setDefaultTopic("sip");
-        this.handler.setAsync(true);
+    public MqttPublisher(MqttConfigProperties props, MqttConnectOptions mqttConnectOptions, ObjectMapper objectMapper) {
+        this.props = props;
+        this.connectOptions = mqttConnectOptions;
         this.objectMapper = objectMapper;
+    }
+
+    @PostConstruct
+    public void init() {
+        try {
+            String brokerUrl = props.getBrokerUrl();
+            String clientId = "sip-backend-" + UUID.randomUUID().toString().substring(0, 8);
+            mqttClient = new MqttClient(brokerUrl, clientId, null);
+            mqttClient.setCallback(new MqttCallback() {
+                @Override
+                public void connectionLost(Throwable cause) {
+                    log.warn("MQTT connection lost: {}", cause != null ? cause.getMessage() : "unknown");
+                }
+
+                @Override
+                public void messageArrived(String topic, MqttMessage message) {
+                    // Outbound-only publisher — no inbound messages expected
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {
+                    // Delivery confirmation
+                }
+            });
+            mqttClient.connect(connectOptions);
+            log.info("MQTT publisher connected to {} with clientId {}", brokerUrl, clientId);
+        } catch (MqttException e) {
+            log.error("Failed to connect MQTT publisher: {}", e.getMessage());
+            throw new RuntimeException("MQTT connection failed", e);
+        }
+    }
+
+    @PreDestroy
+    public void disconnect() {
+        if (mqttClient != null && mqttClient.isConnected()) {
+            try {
+                mqttClient.disconnect();
+                log.info("MQTT publisher disconnected");
+            } catch (MqttException e) {
+                log.warn("Error disconnecting MQTT publisher: {}", e.getMessage());
+            }
+        }
     }
 
     public void publishCommand(String nodeId, Command command) {
@@ -48,13 +96,7 @@ public class MqttPublisher {
             String json = objectMapper.writeValueAsString(payload);
             String topic = "sip/" + nodeId + "/commands";
 
-            Message<String> message = MessageBuilder
-                    .withPayload(json)
-                    .setHeader("mqtt_topic", topic)
-                    .setHeader("mqtt_qos", QOS)
-                    .build();
-
-            handler.handleMessage(message);
+            publish(topic, json, QOS);
             log.debug("Published command {} to topic {}", command.getId(), topic);
         } catch (Exception e) {
             log.error("Failed to publish command {} to node {}: {}", command.getId(), nodeId, e.getMessage());
@@ -70,15 +112,26 @@ public class MqttPublisher {
             String json = objectMapper.writeValueAsString(payload);
             String topic = "sip/" + nodeId + "/ack";
 
-            Message<String> message = MessageBuilder
-                    .withPayload(json)
-                    .setHeader("mqtt_topic", topic)
-                    .setHeader("mqtt_qos", 0)
-                    .build();
-
-            handler.handleMessage(message);
+            publish(topic, json, 0);
         } catch (Exception e) {
             log.error("Failed to publish ack for incident {} to node {}: {}", incidentId, nodeId, e.getMessage());
+        }
+    }
+
+    private void publish(String topic, String payload, int qos) throws MqttException {
+        ensureConnected();
+        mqttClient.publish(topic, payload.getBytes(), qos, false);
+    }
+
+    private void ensureConnected() throws MqttException {
+        if (mqttClient == null || !mqttClient.isConnected()) {
+            log.info("MQTT client not connected, reconnecting...");
+            if (mqttClient == null) {
+                String brokerUrl = props.getBrokerUrl();
+                String clientId = "sip-backend-" + UUID.randomUUID().toString().substring(0, 8);
+                mqttClient = new MqttClient(brokerUrl, clientId, null);
+            }
+            mqttClient.connect(connectOptions);
         }
     }
 }

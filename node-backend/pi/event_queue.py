@@ -109,11 +109,11 @@ def _replay_queue() -> None:
             # MQTT not connected — try REST
             success = _backend_sync.send_incident(event.to_dict())
             if not success:
-                # Re-enqueue for next attempt
+                # Re-enqueue for next attempt — DO NOT mark sent
                 _incident_queue.enqueue(event, via="rest")
                 via = "rest_failed"
-
-        _incident_queue.mark_sent(item["id"], via)
+            else:
+                _incident_queue.mark_sent(item["id"], via)
 
 
 def enqueue_event(
@@ -126,9 +126,10 @@ def enqueue_event(
     Called from edge_server.py when a threat event fires.
     Attempts MQTT first, falls back to REST, queues if both fail.
     """
+    # Lazy init — ensures queue is ready even if start() was never called
     if not _incident_queue or not _backend_sync:
-        log.warning("Event queue not initialized — silently dropping event")
-        return False
+        log.warning("Event queue not yet initialized — initializing now")
+        start()
 
     event = build_threat_event(tier, labels, confidence, model_version)
 

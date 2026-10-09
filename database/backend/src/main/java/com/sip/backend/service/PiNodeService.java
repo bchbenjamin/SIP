@@ -1,4 +1,4 @@
-package com.sip.backend.node;
+package com.sip.backend.service;
 
 import com.sip.backend.common.ResourceNotFoundException;
 import com.sip.backend.dto.NodeDto;
@@ -9,12 +9,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-@Service
-public class NodeService {
+@Service("piNodeService")
+public class PiNodeService {
 
     private final NodeRepository nodeRepository;
 
-    public NodeService(NodeRepository nodeRepository) {
+    public PiNodeService(NodeRepository nodeRepository) {
         this.nodeRepository = nodeRepository;
     }
 
@@ -28,18 +28,6 @@ public class NodeService {
         Node node = nodeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("NODE_NOT_FOUND",
                     "Node not found: " + id));
-        return toDto(node);
-    }
-
-    @Transactional
-    public NodeDto updateHeartbeat(String nodeId, Node.NodeStatus status) {
-        Node node = nodeRepository.findById(nodeId)
-                .orElseThrow(() -> new ResourceNotFoundException("NODE_NOT_FOUND",
-                    "Node not found: " + nodeId));
-
-        node.lastHeartbeat = OffsetDateTime.now();
-        if (status != null) node.status = status;
-        nodeRepository.save(node);
         return toDto(node);
     }
 

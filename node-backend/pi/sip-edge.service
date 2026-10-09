@@ -18,7 +18,7 @@ StandardError=append:/home/pi/edge-ai/logs/edge-system.log
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=read-only
 ReadWritePaths=/home/pi/edge-ai/logs /tmp
 
 [Install]
