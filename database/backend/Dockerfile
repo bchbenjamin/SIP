@@ -4,7 +4,8 @@ FROM eclipse-temurin:17-jdk-alpine AS builder
 WORKDIR /app
 
 # Copy Gradle wrapper and build config first (for dependency caching)
-COPY gradlew gradle/wrapper/gradle-wrapper.properties gradle/wrapper/gradle-wrapper.jar ./
+COPY gradlew gradle/wrapper/gradle-wrapper.properties ./
+RUN wget -q https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -O gradle-wrapper.jar
 COPY build.gradle settings.gradle ./
 
 # Cache Gradle dependencies
