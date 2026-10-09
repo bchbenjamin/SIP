@@ -69,26 +69,18 @@ class IncidentStateMachineTest {
         assertTrue(IncidentStateMachine.canTransition(from, Incident.IncidentState.REJECTED));
         assertTrue(IncidentStateMachine.canTransition(from, Incident.IncidentState.ESCALATED));
     }
+
     @Test
-    void DETECTED_to_EVIDENCE_CAPTURED_to_AUTONOMOUS_EVALUATION_isAllowed() {
+    void VERIFIED_canEscalate() {
         assertTrue(IncidentStateMachine.canTransition(
-            Incident.IncidentState.DETECTED, Incident.IncidentState.EVIDENCE_CAPTURED));
-        assertTrue(IncidentStateMachine.canTransition(
-            Incident.IncidentState.EVIDENCE_CAPTURED, Incident.IncidentState.AUTONOMOUS_EVALUATION));
-        assertTrue(IncidentStateMachine.canTransition(
-            Incident.IncidentState.AUTONOMOUS_EVALUATION, Incident.IncidentState.AUTO_HANDLED));
+            Incident.IncidentState.VERIFIED, Incident.IncidentState.ESCALATED));
     }
 
     @Test
-    void DETERRENCE_path_canCompleteOrEscalate() {
+    void ESCALATED_and_REJECTED_leadTo_RESOLVED() {
         assertTrue(IncidentStateMachine.canTransition(
-            Incident.IncidentState.VERIFIED, Incident.IncidentState.DETERRENCE_ACTIVE));
+            Incident.IncidentState.ESCALATED, Incident.IncidentState.RESOLVED));
         assertTrue(IncidentStateMachine.canTransition(
-            Incident.IncidentState.DETERRENCE_ACTIVE, Incident.IncidentState.DETERRENCE_COMPLETED));
-        assertTrue(IncidentStateMachine.canTransition(
-            Incident.IncidentState.DETERRENCE_ACTIVE, Incident.IncidentState.ESCALATED));
-        assertTrue(IncidentStateMachine.canTransition(
-            Incident.IncidentState.DETERRENCE_COMPLETED, Incident.IncidentState.RESOLVED));
+            Incident.IncidentState.REJECTED, Incident.IncidentState.RESOLVED));
     }
-
 }

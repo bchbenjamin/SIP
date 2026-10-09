@@ -20,10 +20,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-repositories {
-    mavenCentral()
-}
-
 configurations.all {
     resolutionStrategy { failOnVersionConflict() }
 }

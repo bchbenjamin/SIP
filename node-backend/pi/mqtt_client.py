@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import sqlite3
+import ssl
 import time
 import uuid
 from pathlib import Path
@@ -39,7 +40,7 @@ def get_env(key: str, default: str = "") -> str:
 BROKER_URL = get_env("MQTT_BROKER_URL", "tcp://broker.hivemq.com:1883")
 MQTT_USERNAME = get_env("MQTT_USERNAME", "")
 MQTT_PASSWORD = get_env("MQTT_PASSWORD", "")
-CLIENT_ID = get_env("MQTT_CLIENT_ID", f"sip-pi-{uuid.getnode() % 10000:04d}")
+CLIENT_ID = get_env("MQTT_CLIENT_ID", f"sip-pi-{uuid.getnode():012x}")
 NODE_ID = get_env("PI_NODE_ID", "sip-pi-001")
 DEVICE_SECRET = get_env("PI_DEVICE_SECRET", "changeme")
 BACKEND_API_URL = get_env("BACKEND_API_URL", "http://localhost:8080")
@@ -146,11 +147,25 @@ class PiMqttClient:
     def connect(self, timeout: int = 30) -> bool:
         try:
             log.info("Connecting to MQTT broker at %s (client_id=%s)", BROKER_URL, CLIENT_ID)
-            self.client.connect_async(
-                BROKER_URL.replace("tcp://", "").replace("mqtt://", "").split(":")[0],
-                int(BROKER_URL.split(":")[-1]) if ":" in BROKER_URL else 1883,
-                keepalive=60
-            )
+
+            # Parse protocol and host/port
+            proto = BROKER_URL.split("://")[0] if "://" in BROKER_URL else "tcp"
+            host_part = BROKER_URL.split("://")[1] if "://" in BROKER_URL else BROKER_URL
+            host = host_part.rsplit(":", 1)[0] if ":" in host_part else host_part
+            port = int(host_part.rsplit(":", 1)[1]) if ":" in host_part else 8883 if proto in ("ssl", "mqtts") else 1883
+
+            # Apply TLS for ssl:// and mqtts://
+            if proto in ("ssl", "mqtts"):
+                ssl_ctx = ssl.create_default_context()
+                tls_ca = get_env("MQTT_TLS_CA_CERT", "")
+                if tls_ca:
+                    ssl_ctx.load_verify_locations(tls_ca)
+                self.client.tls_set_context(ssl_ctx)
+                if get_env("MQTT_TLS_INSECURE", "false").lower() == "true":
+                    ssl_ctx.check_hostname = False
+                    ssl_ctx.verify_mode = ssl.CERT_NONE
+
+            self.client.connect_async(host, port, keepalive=60)
             self.client.loop_start()
             # Wait for connection
             for _ in range(timeout * 2):

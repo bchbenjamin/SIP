@@ -6,6 +6,7 @@ import com.sip.backend.repository.CommandRepository;
 import com.sip.backend.repository.NodeRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +26,8 @@ public class CommandService {
     private final NodeRepository nodeRepository;
     private final MqttPublisher mqttPublisher;
 
-    public CommandService(CommandRepository commandRepository, NodeRepository nodeRepository, MqttPublisher mqttPublisher) {
+    public CommandService(CommandRepository commandRepository, NodeRepository nodeRepository,
+                          @Autowired(required = false) MqttPublisher mqttPublisher) {
         this.commandRepository = commandRepository;
         this.nodeRepository = nodeRepository;
         this.mqttPublisher = mqttPublisher;
@@ -43,8 +45,10 @@ public class CommandService {
         }
         cmd = commandRepository.save(cmd);
 
-        // Publish to MQTT for the specific node
-        mqttPublisher.publishCommand(nodeId, cmd);
+        // Publish to MQTT for the specific node (no-op if MQTT disabled)
+        if (mqttPublisher != null) {
+            mqttPublisher.publishCommand(nodeId, cmd);
+        }
 
         log.info("Dispatched command {} type={} to node {}", cmd.getId(), type, nodeId);
         return cmd;

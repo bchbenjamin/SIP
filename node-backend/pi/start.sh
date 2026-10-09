@@ -83,7 +83,7 @@ echo "[$(date)] Tunnel URL: check $TUNNEL_LOG"
 # ─── 4. Queue replay on startup (process any pending offline incidents) ────────
 python3 -c "
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.abspath('${SCRIPT_DIR}')))
+sys.path.insert(0, os.path.dirname(os.path.abspath("${SCRIPT_DIR}")))
 try:
     import event_queue
     event_queue.start(heartbeat_interval=30)

@@ -1,13 +1,11 @@
 package com.sip.backend.dashboard;
 
 import com.sip.backend.dto.DashboardDto;
-import com.sip.backend.dto.IncidentDto;
 import com.sip.backend.entity.Incident;
 import com.sip.backend.incident.IncidentMapper;
 import com.sip.backend.repository.IncidentRepository;
 import com.sip.backend.repository.NodeRepository;
 import com.sip.backend.entity.Node;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -17,12 +15,8 @@ public class DashboardService {
 
     private static final List<Incident.IncidentState> ACTIVE_STATES = List.of(
             Incident.IncidentState.DETECTED,
-            Incident.IncidentState.EVIDENCE_CAPTURED,
             Incident.IncidentState.PENDING_VERIFICATION,
-            Incident.IncidentState.AUTONOMOUS_EVALUATION,
             Incident.IncidentState.VERIFIED,
-            Incident.IncidentState.AUTO_HANDLED,
-            Incident.IncidentState.DETERRENCE_ACTIVE,
             Incident.IncidentState.ESCALATED
     );
 
@@ -42,7 +36,6 @@ public class DashboardService {
         DashboardDto dto = new DashboardDto();
         dto.totalNodes = nodeRepository.count();
         dto.onlineNodes = nodeRepository.countByStatus(Node.NodeStatus.ONLINE);
-        // Count every non-terminal incident stage, including active deterrence and evaluation.
         dto.activeThreats = ACTIVE_STATES.stream()
                 .mapToLong(incidentRepository::countByState)
                 .sum();

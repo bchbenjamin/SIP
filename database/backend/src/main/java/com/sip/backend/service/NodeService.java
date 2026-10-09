@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,10 +34,12 @@ public class NodeService {
         Node node = nodeRepository.findById(nodeId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown node: " + nodeId));
 
-        // Update node status and last heartbeat
-        node.setLastHeartbeat(payload.getTimestamp() != null ? payload.getTimestamp() : Instant.now());
-        node.setStatus(Node.NodeStatus.ONLINE);
-        if (payload.getBatteryLevel() != null) node.setBatteryLevel(payload.getBatteryLevel());
+        OffsetDateTime ts = payload.getTimestamp() != null
+                ? payload.getTimestamp().atOffset(ZoneOffset.UTC)
+                : OffsetDateTime.now();
+        node.lastHeartbeat = ts;
+        node.status = Node.NodeStatus.ONLINE;
+        if (payload.getBatteryLevel() != null) node.batteryLevel = payload.getBatteryLevel();
         nodeRepository.save(node);
 
         // Record heartbeat
@@ -57,7 +61,7 @@ public class NodeService {
     @Transactional
     public void markNodeOffline(String nodeId) {
         nodeRepository.findById(nodeId).ifPresent(node -> {
-            node.setStatus(Node.NodeStatus.OFFLINE);
+            node.status = Node.NodeStatus.OFFLINE;
             nodeRepository.save(node);
             log.info("Node {} marked OFFLINE", nodeId);
         });

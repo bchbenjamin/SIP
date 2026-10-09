@@ -36,7 +36,8 @@ spring:
     default-property-inclusion: non_null
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:${PORT:8080}}
+  address: 0.0.0.0
   error:
     include-message: never
     include-binding-errors: never
@@ -48,12 +49,13 @@ app:
     refresh-token-expiry-seconds: ${JWT_REFRESH_EXPIRY:604800}
   mqtt:
     enabled: ${MQTT_ENABLED:true}
-    broker-url: ${MQTT_BROKER_URL:tcp://localhost:1883}
+    broker-url: ${MQTT_BROKER_URL:}
     username: ${MQTT_USERNAME:}
     password: ${MQTT_PASSWORD:}
     client-id: ${MQTT_CLIENT_ID:sip-backend}
     command-timeout: 30
     keep-alive-interval: 60
+    use-tls: ${MQTT_USE_TLS:false}
   node:
     credential-salt: ${NODE_CREDENTIAL_SALT:}
   device-api-key: ${DEVICE_API_KEY:}

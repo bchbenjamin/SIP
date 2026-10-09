@@ -57,7 +57,7 @@ class BackendSync:
             self.headers["X-API-Key"] = api_key
 
     def _post(self, path: str, payload: Dict) -> Optional[Dict]:
-        if not self.api_url or self.api_url == "http://localhost:8080":
+        if not self.api_url:
             return None
         try:
             resp = requests.post(
@@ -70,7 +70,7 @@ class BackendSync:
                 return resp.json() if resp.content else {}
             log.debug("Backend POST %s -> %d", path, resp.status_code)
         except requests.RequestException as exc:
-            log.debug("Backend unreachable at %s: %s", self.api_url, exc)
+            log.warning("Backend unreachable at %s: %s", self.api_url, exc)
         return None
 
     def _get(self, path: str, params: Optional[Dict] = None) -> Optional[Dict]:

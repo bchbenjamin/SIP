@@ -11,14 +11,6 @@ public final class IncidentStateMachine {
     private static final Map<Incident.IncidentState, Set<Incident.IncidentState>> ALLOWED_TRANSITIONS =
             Map.ofEntries(
                     Map.entry(Incident.IncidentState.DETECTED, Set.of(
-                            Incident.IncidentState.EVIDENCE_CAPTURED,
-                            Incident.IncidentState.PENDING_VERIFICATION,
-                            Incident.IncidentState.ESCALATED)),
-                    Map.entry(Incident.IncidentState.EVIDENCE_CAPTURED, Set.of(
-                            Incident.IncidentState.PENDING_VERIFICATION,
-                            Incident.IncidentState.AUTONOMOUS_EVALUATION)),
-                    Map.entry(Incident.IncidentState.AUTONOMOUS_EVALUATION, Set.of(
-                            Incident.IncidentState.AUTO_HANDLED,
                             Incident.IncidentState.PENDING_VERIFICATION,
                             Incident.IncidentState.ESCALATED)),
                     Map.entry(Incident.IncidentState.PENDING_VERIFICATION, Set.of(
@@ -26,16 +18,7 @@ public final class IncidentStateMachine {
                             Incident.IncidentState.REJECTED,
                             Incident.IncidentState.ESCALATED)),
                     Map.entry(Incident.IncidentState.VERIFIED, Set.of(
-                            Incident.IncidentState.DETERRENCE_ACTIVE,
                             Incident.IncidentState.ESCALATED)),
-                    Map.entry(Incident.IncidentState.AUTO_HANDLED, Set.of(
-                            Incident.IncidentState.DETERRENCE_ACTIVE,
-                            Incident.IncidentState.RESOLVED)),
-                    Map.entry(Incident.IncidentState.DETERRENCE_ACTIVE, Set.of(
-                            Incident.IncidentState.DETERRENCE_COMPLETED,
-                            Incident.IncidentState.ESCALATED)),
-                    Map.entry(Incident.IncidentState.DETERRENCE_COMPLETED, Set.of(
-                            Incident.IncidentState.RESOLVED)),
                     Map.entry(Incident.IncidentState.REJECTED, Set.of(
                             Incident.IncidentState.RESOLVED)),
                     Map.entry(Incident.IncidentState.ESCALATED, Set.of(
