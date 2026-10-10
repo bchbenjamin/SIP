@@ -1,0 +1,15 @@
+# robots.txt for SIP Guardian Landing Page
+# https://sip.bchbenjamin.in
+
+User-agent: *
+Allow: /
+
+# Disallow internal API and SSR paths (these return dynamic data, not pages)
+Disallow: /api/
+Disallow: /api/v1/
+
+# Allow well-known crawlers
+Sitemap: https://sip.bchbenjamin.in/sitemap.xml
+
+# Crawl delay — polite, no need to hammer a small site
+Crawl-delay: 1

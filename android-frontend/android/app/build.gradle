@@ -7,13 +7,21 @@ plugins {
 
 def sipApiBaseUrl = providers.gradleProperty('SIP_API_BASE_URL')
         .orElse(providers.environmentVariable('SIP_API_BASE_URL'))
-        .orElse('https://api.bchbenjamin.in/')
+        .orElse('https://api.sip.bchbenjamin.in/')
         .get()
 def escapedBaseUrl = sipApiBaseUrl.replace('\\', '\\\\').replace('"', '\\"')
 
 android {
     namespace 'com.sip.guardian'
     compileSdk 35
+    signingConfigs {
+        release {
+            storeFile file('../' + (System.getenv('SIP_KEYSTORE_FILE') ?: 'sip-beta.jks'))
+            storePassword System.getenv('SIP_KEYSTORE_PASSWORD') ?: ''
+            keyAlias System.getenv('SIP_KEY_ALIAS') ?: 'sip-beta'
+            keyPassword System.getenv('SIP_KEY_PASSWORD') ?: ''
+        }
+    }
     defaultConfig {
         applicationId "com.sip.guardian"
         minSdk 26
@@ -26,6 +34,7 @@ android {
     buildTypes {
         debug { buildConfigField "String", "API_BASE_URL", '"' + escapedBaseUrl + '"' }
         release {
+            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             buildConfigField "String", "API_BASE_URL", '"' + escapedBaseUrl + '"'

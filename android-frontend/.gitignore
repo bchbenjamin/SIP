@@ -1,3 +1,8 @@
+# Signing credentials (keystore + passwords — never commit these)
+*.jks
+*.keystore
+gradle.properties
+
 # Environment / secrets
 .env
 .env.*

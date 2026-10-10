@@ -1,0 +1,56 @@
+# SIP Guardian — llms.txt
+
+## Project Name
+**SIP Guardian** — AI-Powered Street Safety Device Network
+
+## Purpose
+SIP Guardian is an edge-AI threat detection and safety response system. It uses a distributed mesh of Raspberry Pi edge nodes running local object detection models to identify threats (weapons, suspicious behavior, violence, animals) on city streets, alert operators via a mobile app, and autonomously trigger deterrence responses (sirens, lights).
+
+**Status: research prototype / beta.** Not a certified emergency service. Not yet production-validated for life-safety use.
+
+## Architecture
+
+### Edge Nodes (Raspberry Pi)
+- Run local YOLO/SSD inference — no cloud round-trip for detection
+- Publish incidents via MQTT (QoS 1) to a broker → backend
+- REST fallback when MQTT is unavailable
+- SQLite offline queue for incidents when both paths fail
+- Autonomous deterrence (siren, strobe) via GPIO even when fully offline
+- Heartbeat reporting to backend
+
+### Backend (Spring Boot + Neon PostgreSQL)
+- REST API at `https://api.sip.bchbenjamin.in/`
+- WebSocket for real-time operator notifications
+- MQTT broker integration for bidirectional Pi communication
+- Flyway migrations for schema management
+- JWT authentication for operators
+
+### Android App (Kotlin + Jetpack Compose)
+- Operator dashboard with live incident feed
+- Push notifications via WebSocket
+- Local Room cache for offline viewing
+- Biometric / PIN unlock
+
+### Landing Page (React + TanStack Start)
+- Public marketing site at `https://sip.bchbenjamin.in/`
+- Built with TanStack Start + Vite, deployed on Vercel
+
+## Key Links
+- **Repository:** https://github.com/bchbenjamin/SIP
+- **API:** https://api.sip.bchbenjamin.in/actuator/health
+- **Landing Page:** https://sip.bchbenjamin.in/
+- **GitHub Releases:** https://github.com/bchbenjamin/SIP/releases
+- **Android APK (beta):** See GitHub Releases
+
+## Threat Detection Capabilities
+- Weapon detection (knife, gun, visual threat signatures)
+- Suspicious behavior detection
+- Violence detection
+- Animal detection (dogs, bears — potential threats)
+- Audio anomaly detection (sirens, gunshots)
+
+## Limitations
+- Detection accuracy depends on camera angle, lighting, and model weights
+- No integration with real police or emergency services
+- Beta software — expect bugs, false positives, and missed detections
+- Do not use as a substitute for professional security or emergency response
