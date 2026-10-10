@@ -33,6 +33,12 @@ public class DataSourceUriParser {
             return;
         }
 
+        // Strip jdbc:postgresql:// prefix if present (Render may set DATABASE_URL
+        // in that form rather than the raw postgresql:// scheme URI expects)
+        if (uri.startsWith("jdbc:")) {
+            uri = uri.substring(5);
+        }
+
         // Avoid double-setting if already done
         if (System.getProperty("DB_HOST") != null) {
             log.debug("DB_HOST already set, skipping DATABASE_URL parse");
