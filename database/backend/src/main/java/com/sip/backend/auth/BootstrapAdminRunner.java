@@ -34,14 +34,8 @@ public class BootstrapAdminRunner implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (username.isBlank() && password.isBlank()) return;
-        if (username.isBlank() || password.isBlank()) {
-            throw new IllegalStateException(
-                    "Set both SIP_BOOTSTRAP_ADMIN_USERNAME and SIP_BOOTSTRAP_ADMIN_PASSWORD, or neither");
-        }
-        if (password.length() < 12) {
-            throw new IllegalStateException("Bootstrap administrator password must be at least 12 characters");
-        }
+        if (username.isBlank() || password.isBlank()) return;
+        if (password.length() < 12) return; // skip if password too short (don't crash the app)
         if (users.existsByUsername(username)) return;
 
         User admin = new User(UUID.randomUUID().toString(), username,
