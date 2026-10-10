@@ -2,22 +2,17 @@ package com.sip.backend.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.MapPropertySource;
 
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
- * Parses a Neon connection URI (e.g. postgresql://user:pass@host/db?sslmode=require)
- * and injects DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_QUERY into Spring's
- * Environment at context startup time — BEFORE property placeholders are resolved.
+ * Parses a Neon DATABASE_URL (e.g. postgresql://user:pass@host/db?sslmode=require)
+ * and sets DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_QUERY as SYSTEM PROPERTIES.
  *
- * This must be registered as a listener so it runs before the refresh starts.
+ * Must be called from main() BEFORE SpringApplication.run() so Spring's property
+ * placeholder resolution sees these values for spring.datasource.* properties.
  */
 public class DataSourceUriParser {
 
@@ -26,29 +21,21 @@ public class DataSourceUriParser {
     private DataSourceUriParser() {}
 
     /**
-     * Call this from your main method, before SpringApplication.run(...).
-     * Sets system properties from DATABASE_URL if DB_HOST is not already set.
+     * Parses DATABASE_URL and sets system properties for the datasource.
+     * Safe to call multiple times (checks if already set).
      */
-    public static void parseAndSet(ConfigurableEnvironment env) {
-        // Read env var directly — env.getProperty() may not yet see raw env vars
-        // when this runs as an ApplicationContextInitializer (before property resolution).
+    public static void populateSystemProperties() {
+        // Always read env var directly — available from the JVM's first breath
         String uri = System.getenv("DATABASE_URL");
 
-        // Fallback: if not set as env var, check if Spring already resolved it
         if (uri == null || uri.isBlank()) {
-            uri = env.getProperty("DATABASE_URL", "");
-        }
-
-        if (uri == null || uri.isBlank() || uri.equals("jdbc:postgresql://localhost")) {
-            log.warn("DATABASE_URL not set — datasource will use defaults");
+            log.warn("DATABASE_URL env var is not set — datasource will use application.yml defaults");
             return;
         }
 
-        log.info("DATABASE_URL parser initializing — DATABASE_URL='{}'",
-                uri != null && uri.length() > 20 ? uri.substring(0, 20) + "..." : uri);
-
-        if (System.getenv("DB_HOST") != null) {
-            log.debug("DB_HOST already set in environment, skipping DATABASE_URL parse");
+        // Avoid double-setting if already done
+        if (System.getProperty("DB_HOST") != null) {
+            log.debug("DB_HOST already set, skipping DATABASE_URL parse");
             return;
         }
 
@@ -90,22 +77,17 @@ public class DataSourceUriParser {
                 query = (query.isEmpty() ? "" : query + "&") + "sslmode=require";
             }
 
-            Map<String, Object> props = new HashMap<>();
-            props.put("DB_HOST", hostPort);
-            props.put("DB_NAME", dbName);
-            props.put("DB_USER", dbUser);
-            props.put("DB_PASSWORD", dbPassword);
-            props.put("DB_QUERY", query);
+            // Set as system properties — highest priority, visible to Spring everywhere
+            System.setProperty("DB_HOST", hostPort);
+            System.setProperty("DB_NAME", dbName);
+            System.setProperty("DB_USER", dbUser);
+            System.setProperty("DB_PASSWORD", dbPassword);
+            System.setProperty("DB_QUERY", query);
 
-            // Remove any existing DB_HOST source so we can override
-            env.getPropertySources().remove("DATA_SOURCE_URI_OVERRIDE");
-
-            // Add highest-priority source before system properties
-            env.getPropertySources()
-                    .addFirst(new MapPropertySource("DATA_SOURCE_URI_OVERRIDE", props));
-
-            log.info("Parsed DATABASE_URL → host={}, db={}, user={}",
-                    hostPort, dbName, dbUser.isEmpty() ? "(none)" : dbUser);
+            log.info("DATABASE_URL parsed → host={}, db={}, user={}, sslmode={}",
+                    hostPort, dbName,
+                    dbUser.isEmpty() ? "(none)" : dbUser,
+                    query.contains("sslmode=require") ? "require" : "not-set");
 
         } catch (Exception e) {
             log.error("Failed to parse DATABASE_URL '{}': {}", uri, e.getMessage());
