@@ -3,10 +3,12 @@ spring:
     name: sip-backend
 
   datasource:
-    # Put the full JDBC URL (including URL-encoded user/password query parameters) in DATABASE_URL.
-    # Neon requires TLS, for example: jdbc:postgresql://HOST/DB?user=USER&password=PASSWORD&sslmode=require
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/sipdb?user=sipuser}
-    driver-class-name: org.postgresql.Driver
+    # Provide DATABASE_URL as the raw Neon connection string, e.g.:
+    #   postgresql://USER:PASSWORD@HOST/DB?sslmode=require&channel_binding=require
+    # The DataSourceConfig extracts user/password from it and uses query params.
+    url: jdbc:postgresql://${DB_HOST:localhost}/${DB_NAME:sipdb}?${DB_QUERY:user=sipuser&sslmode=disable}
+    username: ${DB_USER:${DATABASE_USERNAME:}}
+    password: ${DB_PASSWORD:${DATABASE_PASSWORD:}}
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
       minimum-idle: ${DB_POOL_MIN_IDLE:0}
