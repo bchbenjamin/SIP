@@ -30,13 +30,22 @@ public class DataSourceUriParser {
      * Sets system properties from DATABASE_URL if DB_HOST is not already set.
      */
     public static void parseAndSet(ConfigurableEnvironment env) {
-        String uri = env.getProperty("DATABASE_URL",
-                env.getProperty("spring.datasource.url", ""));
+        // Read env var directly — env.getProperty() may not yet see raw env vars
+        // when this runs as an ApplicationContextInitializer (before property resolution).
+        String uri = System.getenv("DATABASE_URL");
 
+        // Fallback: if not set as env var, check if Spring already resolved it
         if (uri == null || uri.isBlank()) {
-            log.warn("DATABASE_URL not set — datasource will use default values");
+            uri = env.getProperty("DATABASE_URL", "");
+        }
+
+        if (uri == null || uri.isBlank() || uri.equals("jdbc:postgresql://localhost")) {
+            log.warn("DATABASE_URL not set — datasource will use defaults");
             return;
         }
+
+        log.info("DATABASE_URL parser initializing — DATABASE_URL='{}'",
+                uri != null && uri.length() > 20 ? uri.substring(0, 20) + "..." : uri);
 
         if (System.getenv("DB_HOST") != null) {
             log.debug("DB_HOST already set in environment, skipping DATABASE_URL parse");
