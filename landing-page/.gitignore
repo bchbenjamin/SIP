@@ -33,3 +33,5 @@ dist-ssr
 
 # Context
 context
+.vercel
+.env*
