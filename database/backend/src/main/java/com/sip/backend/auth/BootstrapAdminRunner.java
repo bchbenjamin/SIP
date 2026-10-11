@@ -34,13 +34,25 @@ public class BootstrapAdminRunner implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (username.isBlank() || password.isBlank()) return;
-        if (password.length() < 12) return; // skip if password too short (don't crash the app)
-        if (users.existsByUsername(username)) return;
+        System.out.println("[BootstrapAdminRunner] Starting — username='" + username + "', password length=" + password.length());
+        if (username.isBlank() || password.isBlank()) {
+            System.out.println("[BootstrapAdminRunner] SKIP: username or password is blank");
+            return;
+        }
+        if (password.length() < 12) {
+            System.out.println("[BootstrapAdminRunner] SKIP: password too short (" + password.length() + " chars, need 12+)");
+            return;
+        }
+        if (users.existsByUsername(username)) {
+            System.out.println("[BootstrapAdminRunner] SKIP: user '" + username + "' already exists");
+            return;
+        }
 
+        System.out.println("[BootstrapAdminRunner] Creating admin user: " + username);
         User admin = new User(UUID.randomUUID().toString(), username,
                 passwordEncoder.encode(password), User.Role.ADMIN);
         admin.enabled = true;
         users.save(admin);
+        System.out.println("[BootstrapAdminRunner] Admin user created successfully.");
     }
 }
