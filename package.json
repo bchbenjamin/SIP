@@ -1,9 +1,0 @@
-{
-  "name": "sip-root",
-  "version": "0.0.0",
-  "private": true,
-  "workspaces": ["landing-page"],
-  "scripts": {
-    "deploy": "cd landing-page && npx vercel --prod"
-  }
-}

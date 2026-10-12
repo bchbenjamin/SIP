@@ -1,5 +1,8 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd landing-page && npm install && npm run build",
+  "installCommand": "cd landing-page && npm install",
+  "framework": null,
+  "rootDirectory": "landing-page",
   "crons": [
     {
       "path": "/api/cron/wake",
