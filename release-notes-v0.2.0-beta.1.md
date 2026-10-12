@@ -1,6 +1,6 @@
 # SIP Guardian v0.2.0 Beta
 
-**Download:** `app-release.apk` (SHA-256 below)
+**Download:** `sip-guardian-v0.2.0-beta.1.apk` (SHA-256 below)
 
 ---
 
