@@ -37,51 +37,8 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
-const BACKEND_URL = "https://api.sip.bchbenjamin.in/actuator/health";
-
-async function handleCronWake(): Promise<Response> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const res = await fetch(BACKEND_URL, {
-      signal: controller.signal,
-      headers: { "User-Agent": "SIP-Cron/1.0" },
-    });
-
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      console.error(`[cron/wake] Backend returned ${res.status}`);
-      return new Response(
-        JSON.stringify({ ok: false, backendStatus: res.status }),
-        { status: 502, headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    console.log(`[cron/wake] Backend healthy — ${new Date().toISOString()}`);
-    return new Response(
-      JSON.stringify({ ok: true, at: new Date().toISOString() }),
-      { headers: { "Content-Type": "application/json" } },
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[cron/wake] Failed: ${msg}`);
-    return new Response(
-      JSON.stringify({ ok: false, error: msg }),
-      { status: 503, headers: { "Content-Type": "application/json" } },
-    );
-  }
-}
-
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    // Vercel Cron: /api/cron/wake every 10 minutes keeps Render free-tier backend awake.
-    const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/api/cron/wake") {
-      return handleCronWake();
-    }
-
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
