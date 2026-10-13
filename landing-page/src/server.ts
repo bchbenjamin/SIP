@@ -37,8 +37,66 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
+// Cron handler: keep the Render free-tier backend awake.
+// Retries once after 5s if the first attempt times out.
+async function handleCronWake(): Promise<Response> {
+  const BACKEND_URL = "https://api.sip.bchbenjamin.in/actuator/health";
+  const TIMEOUT_MS = 15000;
+  async function ping(): Promise<{ ok: boolean; status?: number; error?: string }> {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      const res = await fetch(BACKEND_URL, {
+        signal: controller.signal,
+        headers: { "User-Agent": "SIP-Cron/1.0" },
+      });
+      clearTimeout(timer);
+      return { ok: res.ok, status: res.status };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: msg };
+    }
+  }
+  let result = await ping();
+  if (!result.ok && result.error?.includes("aborted")) {
+    // Backend may have been asleep; retry once after a short delay
+    await new Promise((r) => setTimeout(r, 5000));
+    result = await ping();
+  }
+  if (!result.ok) {
+    return new Response(
+      JSON.stringify({ ok: false, backendStatus: result.status, error: result.error }),
+      { status: 502, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  return new Response(
+    JSON.stringify({ ok: true, at: new Date().toISOString() }),
+    { headers: { "Content-Type": "application/json" } },
+  );
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const url = new URL(request.url);
+
+    // Cron wake — handled at entry level before SSR routing
+    if (request.method === "GET" && url.pathname === "/api/cron/wake") {
+      return handleCronWake();
+    }
+
+    // Health check — plain text so we know the function is running
+    if (request.method === "GET" && url.pathname === "/api/health") {
+      return new Response(
+        JSON.stringify({
+          function: "ok",
+          time: new Date().toISOString(),
+          url: request.url,
+          pathname: url.pathname,
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
