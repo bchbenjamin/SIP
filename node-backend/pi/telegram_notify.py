@@ -113,6 +113,27 @@ def get_live_progress():
     return ""
 
 
+def get_ip_addresses():
+    """Get raw IPv4 and IPv6 addresses from wlan0."""
+    import subprocess
+    ips = {"ipv4": None, "ipv6": None}
+    try:
+        result = subprocess.run(
+            ["ip", "addr", "show", "wlan0"],
+            capture_output=True, text=True, timeout=5
+        )
+        for line in result.stdout.split("\n"):
+            line = line.strip()
+            if line.startswith("inet "):
+                # e.g. "inet 192.168.0.125/24 brd ..."
+                ips["ipv4"] = line.split()[1].split("/")[0]
+            elif line.startswith("inet6 ") and "fe80::" not in line:
+                # Global IPv6 (not link-local)
+                ips["ipv6"] = line.split()[1].split("/")[0]
+    except Exception:
+        pass
+    return ips
+
 def get_system_stats():
     """Get system temperature, CPU load, network speed, and setup status."""
     stats = ""
@@ -189,6 +210,13 @@ def format_progress_message():
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     live_progress = get_live_progress()
     sys_stats = get_system_stats()
+    ips = get_ip_addresses()
+
+    ip_lines = ""
+    if ips["ipv4"]:
+        ip_lines += f"  🌐 <b>IPv4:</b> {ips['ipv4']}\n"
+    if ips["ipv6"]:
+        ip_lines += f"  🌐 <b>IPv6:</b> {ips['ipv6']}\n"
 
     msg = (
         f"📊 <b>Training Progress Update</b>\n"
@@ -198,6 +226,9 @@ def format_progress_message():
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"{live_progress}"
         f"📈 Last Completed Epoch: <b>{epoch}</b> (of {total_epochs} total)\n"
+        f"\n"
+        f"<b>Network:</b>\n"
+        f"{ip_lines}"
         f"\n"
         f"<b>Train Loss:</b>\n"
         f"  📦 Box: {train_box}\n"
