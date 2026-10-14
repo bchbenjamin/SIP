@@ -38,10 +38,10 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 }
 
 // Cron handler: keep the Render free-tier backend awake.
-// Retries once after 5s if the first attempt times out.
+// Retries after delay if the first attempt times out (Render cold start can be 30s+).
 async function handleCronWake(): Promise<Response> {
   const BACKEND_URL = "https://api.sip.bchbenjamin.in/actuator/health";
-  const TIMEOUT_MS = 15000;
+  const TIMEOUT_MS = 40000;
   async function ping(): Promise<{ ok: boolean; status?: number; error?: string }> {
     try {
       const controller = new AbortController();
@@ -59,8 +59,8 @@ async function handleCronWake(): Promise<Response> {
   }
   let result = await ping();
   if (!result.ok && result.error?.includes("aborted")) {
-    // Backend may have been asleep; retry once after a short delay
-    await new Promise((r) => setTimeout(r, 5000));
+    // Backend was asleep; retry once after a longer delay for cold start
+    await new Promise((r) => setTimeout(r, 15000));
     result = await ping();
   }
   if (!result.ok) {
