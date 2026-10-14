@@ -38,6 +38,9 @@ async function __nitro_ssr_handler(req) {
   if (url && req.method === "GET" && url.pathname === "/api/cron/wake") {
     return await __nitro_ssr_lazy.fetch(req);
   }
+  if (url && req.method === "GET" && url.pathname === "/api/health") {
+    return await __nitro_ssr_lazy.fetch(req);
+  }
   return null; // fall through to h3App
 }
 // --- end SIP patch ---
