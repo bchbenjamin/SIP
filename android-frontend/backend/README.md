@@ -1,3 +1,14 @@
+# ⚠️ DEPRECATED — This directory is no longer maintained.
+
+**This backend implementation is superseded by `database/backend/`.**
+The canonical production backend is the Spring Boot application deployed at `database/backend/` and running on Render at `api.sip.bchbenjamin.in`.
+
+This directory (`android-frontend/backend/`) contains a structurally identical but independently maintained copy that was never integrated into CI/CD, never deployed to production, and has no active consumers. It is retained only as a historical reference.
+
+**Do not use this directory for new development.** All changes to the production backend should be made in `database/backend/`.
+
+---
+
 # SIP Backend
 
 Spring Boot 3 / Java 17 backend for the AI-Powered Street Safety Device Network.
