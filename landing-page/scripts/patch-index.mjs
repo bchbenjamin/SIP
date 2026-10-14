@@ -34,14 +34,9 @@ const patch = `
 // --- SIP patch: invoke SSR service before renderer ---
 var __nitro_ssr_lazy = { fetch(req) { return import("./_ssr/ssr.mjs").then(m => m.default.fetch(req)); } };
 async function __nitro_ssr_handler(req) {
-  var url = req.url ? new URL(req.url) : null;
-  if (url && req.method === "GET" && url.pathname === "/api/cron/wake") {
-    return await __nitro_ssr_lazy.fetch(req);
-  }
-  if (url && req.method === "GET" && url.pathname === "/api/health") {
-    return await __nitro_ssr_lazy.fetch(req);
-  }
-  return null; // fall through to h3App
+  if (req.method !== "GET") return null;
+  // Route all GET requests to SSR — let TanStack Start handle routing
+  return await __nitro_ssr_lazy.fetch(req);
 }
 // --- end SIP patch ---
 `;
