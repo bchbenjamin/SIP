@@ -60,7 +60,9 @@ public class Incident {
     public DetectionDomain detectionDomain;
 
     public enum IncidentState {
-        DETECTED, PENDING_VERIFICATION, VERIFIED, REJECTED, ESCALATED, RESOLVED
+        DETECTED, EVIDENCE_CAPTURED, AUTONOMOUS_EVALUATION, PENDING_VERIFICATION,
+        VERIFIED, AUTO_HANDLED, DETERRENCE_ACTIVE, DETERRENCE_COMPLETED,
+        REJECTED, ESCALATED, RESOLVED
     }
 
     public enum ThreatType {
