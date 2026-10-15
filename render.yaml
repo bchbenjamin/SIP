@@ -6,6 +6,7 @@ services:
     region: oregon
     plan: free
     healthCheckPath: /actuator/health
+    autoDeploy: yes
     envVars:
       - key: DATABASE_URL
         sync: false
