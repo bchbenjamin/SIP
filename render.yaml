@@ -1,11 +1,12 @@
 services:
   - name: sip-backend
-    runtime: docker
-    rootDir: database/backend
-    dockerfilePath: Dockerfile
-    region: oregon
+    runtime: java
+    region: singapore
     plan: free
     healthCheckPath: /actuator/health
+    buildCommand: mkdir -p build/libs && cp sip-backend-0.1.0.jar build/libs/sip-backend-0.1.0.jar && echo "JAR copied"
+    startCommand: java -XX:+UseG1GC -Xmx512m -jar build/libs/sip-backend-0.1.0.jar
+    rootDir: database/backend
     autoDeploy: yes
     envVars:
       - key: DATABASE_URL
@@ -30,5 +31,3 @@ services:
         value: "admin"
       - key: SIP_BOOTSTRAP_ADMIN_PASSWORD
         sync: false
-      - key: JAVA_OPTS
-        value: "-XX:+UseG1GC -Xmx512m"
