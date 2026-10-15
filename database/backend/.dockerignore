@@ -5,5 +5,4 @@
 **/*.class
 **/.env
 **/gradle/wrapper/dists/
-# Only exclude build output at repo root, not in subdirectories
-build/
+database/backend/build/
