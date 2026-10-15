@@ -37,9 +37,15 @@ Network config is in `.env` — update `IP_ADDRESS` if the Pi's DHCP address cha
 The Pi runs a 24/7 autonomous YOLOv8 training pipeline independent of this laptop:
 
 - **Systemd autostart:** `weapon-training.service` starts training on every boot and auto-recovers from crashes
-- **Dataset:** ~9,419 images unified from Roboflow Gun+Knife Detection, Kaggle Weapon Detection Test, and CCTV Knife Detection datasets
+- **Dataset registry:** `dataset_registry.py` tracks all datasets persistently — sources, licenses, status, training runs
+- **Dataset audit:** `dataset_audit.py` validates images, YOLO labels, class IDs, and detects duplicates
+- **Power monitor:** `power_monitor.py` runs as an independent systemd service — polls `vcgencmd get_throttled` every 60s, sends ONE Telegram alert after >30 min of continuous undervoltage
+- **Datasets:** Unified dataset with 3 classes: `gun`, `knife`, `dangerous_animal`
+  - Weapon: Roboflow Gun+Knife Detection, Kaggle Weapon Detection
+  - Animals: Zenodo NESTLER (Safari, Elephants, Foxes), Kaggle Pet Detection, TigDog
+- **Checkpoint verification:** `train_autonomous.py` verifies dataset manifest and checkpoint class compatibility before resuming
 - **Telegram bot:** Remote monitoring and image inference via Telegram — message the bot for a live progress update or send an image for weapon detection
-- **Script:** `pi/train_autonomous.py` — handles checkpoint resumption, OOM fallback, and continuous 150-epoch runs
+- **Script:** `pi/train_autonomous.py` — handles manifest verification, checkpoint compatibility, OOM fallback, and continuous 150-epoch runs
 
 See **[CONTEXT.md](CONTEXT/CONTEXT.md)** Sections 16–18 for full details on the training pipeline, batch processing, and Telegram integration.
 
@@ -49,12 +55,15 @@ See **[CONTEXT.md](CONTEXT/CONTEXT.md)** Sections 16–18 for full details on th
 
 ```
 Prototype/
-├── pi/                     # Raspberry Pi scripts (edge server, training, Telegram bot)
+├── pi/                     # Raspberry Pi scripts
 │   ├── edge_server.py      # Main WebSocket inference server
-│   ├── train_autonomous.py # Autonomous YOLOv8 training with crash recovery
-│   ├── download_and_merge.py # Dataset downloader and merger
+│   ├── train_autonomous.py # Autonomous YOLOv8 training with manifest verification
+│   ├── download_and_merge.py # Dataset downloader and merger (Zenodo, Kaggle, TigDog)
+│   ├── dataset_registry.py # Persistent dataset tracking with atomic JSON writes
+│   ├── dataset_audit.py    # Forensic audit: checksum, class ID, duplicate, split leakage
+│   ├── power_monitor.py    # Independent undervoltage monitor (systemd service)
 │   ├── telegram_bot.py     # Interactive Telegram bot (status + image inference)
-│   ├── telegram_notify.py  # Automated progress notifications
+│   ├── telegram_notify.py  # Automated progress notifications with IPv4/IPv6
 │   ├── app_batch.py        # Batch video processing (frame-by-frame detection)
 │   ├── sound_event_batch.py# Batch audio processing (scream detection)
 │   └── config.json / requirements.txt
@@ -90,12 +99,19 @@ Prototype/
 
 ## Network Configuration
 
-The laptop and Pi must be on the same subnet. Credentials and the Pi IP are stored in `.env` (gitignored):
+The Pi is reachable via two interfaces:
+
+| Interface | Address | Use |
+|-----------|---------|-----|
+| WiFi (wlan0) | `192.168.0.125` | Normal operation |
+| USB gadget (usb0) | `10.42.0.1/24` | Recovery / no-network scenarios |
+
+Credentials are stored in `.env` (gitignored):
 
 ```env
-IP_ADDRESS=<raspberry_pi_ip>
-USERNAME=<pi_username>
-PASSWORD=<pi_password>
+IP_ADDRESS=192.168.0.125
+USERNAME=benjamin
+PASSWORD=13122006
 ```
 
 Dashboard WebSocket config: `dashboard/.env.local`
