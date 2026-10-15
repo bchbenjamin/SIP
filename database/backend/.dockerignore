@@ -1,4 +1,3 @@
-**/build/
 **/.gradle/
 **/node_modules/
 **/.git/
@@ -6,4 +5,5 @@
 **/*.class
 **/.env
 **/gradle/wrapper/dists/
-**/build/libs/*.jar
+# Only exclude build output at repo root, not in subdirectories
+build/
