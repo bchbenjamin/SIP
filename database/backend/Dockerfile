@@ -1,29 +1,29 @@
-# Multi-stage Docker build for SIP Backend
-# Stage 1: Build the JAR
-FROM eclipse-temurin:17-jdk-alpine AS builder
+# Multi-stage Docker build for SIP Backend — optimized for Render free tier
+# Build stage: minimal footprint, caches dependency downloads in Docker layers
+FROM eclipse-temurin:17-jre-alpine AS builder
 
 RUN apk add --no-cache curl unzip bash
 
 WORKDIR /app
 
-# Download and install Gradle 8.5 (instead of relying on gradle-wrapper.jar)
+# Download Gradle once (layer cached on re-builds)
 RUN curl -fsSL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o gradle.zip \
-    && unzip -q gradle.zip \
-    && rm gradle.zip \
-    && mv gradle-8.5 /opt/gradle
+    && unzip -q gradle.zip && rm gradle.zip && mv gradle-8.5 /opt/gradle
 ENV PATH="/opt/gradle/bin:$PATH"
 
-# Copy build configuration (from build context = database/backend/)
+# Copy build config only — Gradle caches dependencies in /app/.gradle
 COPY build.gradle settings.gradle ./
 
-# Download dependencies (layer cacheable)
-RUN gradle dependencies --no-daemon --stacktrace
+# Pre-fetch ALL dependencies into Docker layer (cached until build.gradle changes)
+RUN gradle dependencies --no-daemon
 
-# Copy source and build JAR
+# Copy source
 COPY src src
-RUN gradle clean bootJar --no-daemon --stacktrace
 
-# Stage 2: Runtime
+# Build JAR (incremental — only recompiles changed classes)
+RUN gradle bootJar --no-daemon
+
+# Runtime stage: minimal, only the JRE + JAR
 FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
