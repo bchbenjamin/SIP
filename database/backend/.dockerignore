@@ -6,4 +6,4 @@
 **/*.class
 **/*.jar
 **/.env
-**/gradle/wrapper/dists/
+**/gradle/wrapper/dists/# test
