@@ -3,7 +3,7 @@ services:
     runtime: docker
     region: singapore
     plan: free
-    healthCheckPath: /actuator/health
+    healthCheckPath: /
     rootDir: ""
     autoDeploy: yes
     envVars:
@@ -29,5 +29,3 @@ services:
         value: "admin"
       - key: SIP_BOOTSTRAP_ADMIN_PASSWORD
         sync: false
-      - key: SERVER_PORT
-        value: "10000"
