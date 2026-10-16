@@ -4,7 +4,6 @@ services:
     region: singapore
     plan: free
     healthCheckPath: /actuator/health
-    dockerfilePath: ./docker/Dockerfile
     rootDir: ""
     autoDeploy: yes
     envVars:
@@ -30,9 +29,5 @@ services:
         value: "admin"
       - key: SIP_BOOTSTRAP_ADMIN_PASSWORD
         sync: false
-      - key: JAVA_OPTS
-        value: "-XX:+UseG1GC -Xmx512m -Djava.security.egd=file:/dev/./urandom"
       - key: SERVER_PORT
         value: "10000"
-      - key: STARTUP_DELAY
-        value: "15"
