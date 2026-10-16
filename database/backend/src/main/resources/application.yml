@@ -72,3 +72,12 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+      db:
+        enabled: false
+  health:
+    db:
+      enabled: false
+    livenessState:
+      enabled: false
+    readinessState:
+      enabled: false
