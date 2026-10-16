@@ -1,10 +1,11 @@
 services:
   - name: sip-backend
-    runtime: java
+    runtime: docker
     region: singapore
     plan: free
     healthCheckPath: /actuator/health
-    rootDir: database/backend
+    dockerfilePath: ./docker/Dockerfile
+    rootDir: ""
     autoDeploy: yes
     envVars:
       - key: DATABASE_URL
@@ -33,3 +34,5 @@ services:
         value: "-XX:+UseG1GC -Xmx512m -Djava.security.egd=file:/dev/./urandom"
       - key: SERVER_PORT
         value: "10000"
+      - key: STARTUP_DELAY
+        value: "15"
