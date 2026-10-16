@@ -1,12 +1,2 @@
-**/.gradle/
-**/node_modules/
-**/.git/
-**/.DS_Store
-**/*.class
-**/.env
-**/gradle/wrapper/dists/
-database/backend/build/
-landing-page/node_modules/
-android-frontend/android/.gradle/
-android-frontend/android/build/
-android-frontend/backend/build/
+**/*
+!database/backend/sip-backend-0.1.0.jar
