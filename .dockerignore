@@ -1,2 +1,3 @@
-**/*
+*
 !database/backend/sip-backend-0.1.0.jar
+!.dockerignore
