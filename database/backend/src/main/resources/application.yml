@@ -71,8 +71,14 @@ management:
         include: health
   endpoint:
     health:
-      show-details: when_authorized
+      show-details: never
+      probes:
+        enabled: false
       db:
+        enabled: false
+      livenessState:
+        enabled: false
+      readinessState:
         enabled: false
   health:
     db:
