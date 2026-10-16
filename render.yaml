@@ -1,12 +1,11 @@
 services:
   - name: sip-backend
-    runtime: java
+    runtime: docker
     region: singapore
     plan: free
     healthCheckPath: /actuator/health
-    buildCommand: mkdir -p build/libs && cp sip-backend-0.1.0.jar build/libs/sip-backend-0.1.0.jar && echo "JAR copied"
-    startCommand: java -XX:+UseG1GC -Xmx512m -jar build/libs/sip-backend-0.1.0.jar
-    rootDir: database/backend
+    dockerfilePath: ./Dockerfile
+    rootDir: ""
     autoDeploy: yes
     envVars:
       - key: DATABASE_URL
@@ -26,8 +25,12 @@ services:
       - key: NODE_CREDENTIAL_SALT
         sync: false
       - key: CORS_ALLOWED_ORIGINS
-        value: "https://kev-ai-device.vercel.app"
+        value: "https://kev-ai-device.vercel.app,https://sip.bchbenjamin.in,https://api.sip.bchbenjamin.in"
       - key: SIP_BOOTSTRAP_ADMIN_USERNAME
         value: "admin"
       - key: SIP_BOOTSTRAP_ADMIN_PASSWORD
         sync: false
+      - key: JAVA_OPTS
+        value: "-XX:+UseG1GC -Xmx512m -Djava.security.egd=file:/dev/./urandom"
+      - key: SERVER_PORT
+        value: "10000"
