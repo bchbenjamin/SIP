@@ -1,11 +1,10 @@
 services:
   - name: sip-backend
-    runtime: docker
+    runtime: java
     region: singapore
     plan: free
     healthCheckPath: /actuator/health
-    dockerfilePath: ./Dockerfile
-    rootDir: ""
+    rootDir: database/backend
     autoDeploy: yes
     envVars:
       - key: DATABASE_URL
