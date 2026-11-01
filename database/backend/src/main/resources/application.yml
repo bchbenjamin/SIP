@@ -3,9 +3,6 @@ spring:
     name: sip-backend
 
   datasource:
-    # Provide DATABASE_URL as the raw Neon connection string, e.g.:
-    #   postgresql://USER:PASSWORD@HOST/DB?sslmode=require&channel_binding=require
-    # The DataSourceConfig extracts user/password from it and uses query params.
     url: jdbc:postgresql://${DB_HOST:localhost}/${DB_NAME:sipdb}?${DB_QUERY:user=sipuser&sslmode=disable}
     username: ${DB_USER:${DATABASE_USERNAME:}}
     password: ${DB_PASSWORD:${DATABASE_PASSWORD:}}
@@ -72,16 +69,8 @@ management:
   endpoint:
     health:
       show-details: never
+      db:
+        enabled: false
   health:
     db:
-      enabled: false
-    redis:
-      enabled: false
-    mongo:
-      enabled: false
-    livenessState:
-      enabled: false
-    readinessState:
-      enabled: false
-    ping:
       enabled: false
