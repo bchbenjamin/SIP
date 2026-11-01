@@ -66,24 +66,10 @@ app:
 
 management:
   endpoints:
+    enabled-by-default: false
     web:
       exposure:
-        include: health
+        exclude: health
   endpoint:
     health:
-      show-details: never
-      probes:
-        enabled: false
-      db:
-        enabled: false
-      livenessState:
-        enabled: false
-      readinessState:
-        enabled: false
-  health:
-    db:
-      enabled: false
-    livenessState:
-      enabled: false
-    readinessState:
       enabled: false
