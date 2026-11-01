@@ -57,4 +57,4 @@ node-backend/pi/datasets/
 
 # ─── Documentation builds ───────────────────────────────
 *.pdf
-*.docx
+*.docxdatabase/docs/CONTEXT.md
