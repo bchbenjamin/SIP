@@ -69,20 +69,19 @@ management:
     web:
       exposure:
         include: health
-    enabled-by-default: false
   endpoint:
     health:
       show-details: never
-      db:
-        enabled: false
-      redis:
-        enabled: false
-      mongo:
-        enabled: false
-      livenessState:
-        enabled: false
-      readinessState:
-        enabled: false
   health:
     db:
+      enabled: false
+    redis:
+      enabled: false
+    mongo:
+      enabled: false
+    livenessState:
+      enabled: false
+    readinessState:
+      enabled: false
+    ping:
       enabled: false
