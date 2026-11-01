@@ -6,28 +6,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Custom health endpoint that bypasses Spring Security and actuator DB checks.
- * Serves /actuator/health (Render's healthCheckPath) with a fast 200 response.
- * No DB queries, no security — returns immediately so Render health check passes.
+ * Simple health check controller for Render and debugging.
+ * Serves / and /health without requiring auth.
+ * The actual /actuator/health is handled by Spring Actuator with DB checks disabled.
  */
 @RestController
 public class HealthController {
-
-    /**
-     * Render health check hits this — returns 200 instantly.
-     * Does NOT use Spring Actuator (which checks DB pool and times out).
-     */
-    @GetMapping("/actuator/health")
-    public Map<String, Object> actuatorHealth() {
-        return Map.of(
-            "status", "UP",
-            "components", Map.of(
-                "db", Map.of("status", "UP"),
-                "diskSpace", Map.of("status", "UP"),
-                "ping", Map.of("status", "UP")
-            )
-        );
-    }
 
     /** Simple root health for debugging */
     @GetMapping("/")
