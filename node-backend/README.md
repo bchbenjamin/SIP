@@ -6,6 +6,25 @@ The system connects a Laptop (visual sensor node + browser dashboard) to a Raspb
 
 ---
 
+## Current Status (2026-11-01)
+
+**Backend:** Deploy at `https://api.sip.bchbenjamin.in` — currently failing health probes after recent actuator security changes. The Render health check probe hits `/actuator/health` before the Neon PostgreSQL pool is ready, causing premature container restarts. Fixes applied in commits `3873002` (custom health controller) and `6464d51` (disable actuator endpoints). Verify health at:
+```bash
+curl https://api.sip.bchbenjamin.in/actuator/health
+```
+
+**Pi Connectivity:**
+| Interface | Address | Status |
+|-----------|---------|--------|
+| WiFi (wlan0) | `192.168.0.125` | Normal operation |
+| USB gadget (usb0) | `10.42.0.1/24` | Recovery / no-network scenarios |
+
+**Dataset Registry:** 7 datasets tracked in `dataset_registry.json` — 2 TRAINING_ELIGIBLE (Roboflow Gun+Knife, Zenodo NESTLER), 5 pending download/validation (Kaggle Weapon Detection, Kaggle Pet Detection, TigDog, Safari, Elephants+Foxes).
+
+**Power Monitor:** Active as `sip-power-monitor.service` — polls every 60s, sends ONE Telegram alert after >30 min undervoltage.
+
+---
+
 ## Architecture Overview
 
 ```
@@ -45,7 +64,17 @@ The Pi runs a 24/7 autonomous YOLOv8 training pipeline independent of this lapto
   - Animals: Zenodo NESTLER (Safari, Elephants, Foxes), Kaggle Pet Detection, TigDog
 - **Checkpoint verification:** `train_autonomous.py` verifies dataset manifest and checkpoint class compatibility before resuming
 - **Telegram bot:** Remote monitoring and image inference via Telegram — message the bot for a live progress update or send an image for weapon detection
-- **Script:** `pi/train_autonomous.py` — handles manifest verification, checkpoint compatibility, OOM fallback, and continuous 150-epoch runs
+- **Script:** `pi/train_autonomous.py` — handles manifest verification, checkpoint compatibility, OOM fallback, and continuous 150-epoch runs. Run with:
+  ```bash
+  # Full run with manifest and checkpoint verification
+  python train_autonomous.py --dataset unified --epochs 150 --device cuda
+
+  # Dry-run (verify manifests and checkpoint only)
+  python train_autonomous.py --dry-run
+
+  # Resume with explicit checkpoint
+  python train_autonomous.py --resume-from runs/train/exp12/weights/best.pt
+  ```
 
 See **[CONTEXT.md](CONTEXT/CONTEXT.md)** Sections 16–18 for full details on the training pipeline, batch processing, and Telegram integration.
 
@@ -64,8 +93,13 @@ Prototype/
 │   ├── power_monitor.py    # Independent undervoltage monitor (systemd service)
 │   ├── telegram_bot.py     # Interactive Telegram bot (status + image inference)
 │   ├── telegram_notify.py  # Automated progress notifications with IPv4/IPv6
+│   ├── mqtt_client.py      # MQTT bridge for Pi↔backend communication
+│   ├── backend_sync.py     # REST fallback for Pi→backend incident sync
+│   ├── register_datasets.py # Pre-populates dataset registry with known datasets
 │   ├── app_batch.py        # Batch video processing (frame-by-frame detection)
 │   ├── sound_event_batch.py# Batch audio processing (scream detection)
+│   ├── sip-edge.service    # systemd unit for edge_server
+│   ├── sip-power-monitor.service # systemd unit for power_monitor
 │   └── config.json / requirements.txt
 ├── laptop/
 │   └── stream_client.py    # Webcam capture → WebSocket stream to Pi
