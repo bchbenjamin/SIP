@@ -1,6 +1,6 @@
 # SIP Implementation Status
 
-Last reviewed: 2026-10-15.
+Last reviewed: 2026-11-01.
 
 This status reflects the current repository source and the latest GitHub Actions checks. A passing CI build is not proof of a live Neon deployment, physical-device connectivity, or Raspberry Pi integration.
 
@@ -38,12 +38,16 @@ Implemented in source:
 - REST application, JPA entities/repositories, Flyway migrations and PostgreSQL configuration.
 - JWT login, refresh-token persistence/rotation, logout/revocation and optional environment-based bootstrap administrator.
 - Incident feed/detail and operator verification, node reads, dashboard, autopilot policy endpoints, audit records and WebSocket broadcast.
-- Global API error format, request IDs, health endpoint and a separate backend CI workflow.
+- Global API error format, request IDs, custom health controller bypassing DB pool check.
 - Pi incident ingestion endpoint (REST fallback when MQTT unavailable).
 - Incident state machine with 11 states: DETECTED → EVIDENCE_CAPTURED → AUTONOMOUS_EVALUATION → AUTO_HANDLED → PENDING_VERIFICATION → VERIFIED/REJECTED/ESCALATED → DETERRENCE_ACTIVE → DETERRENCE_COMPLETED → RESOLVED.
 - Separate incident service package: `IncidentService`, `IncidentMapper`, `IncidentStateMachine`.
 
-Smoke test results (2026-10-15):
+**Current issue (2026-11-01):** Render deploy at `https://api.sip.bchbenjamin.in` is failing. The container health check probes `/actuator/health` before the Neon PostgreSQL connection pool is ready, causing premature restarts and a crash loop. Fixes applied:
+- Commits `6464d51` and `3873002`: custom health controller bypasses DB pool check
+- Commits `a6100c6` and `854ca82`: DB health check disabled via command line args in Dockerfile
+
+Smoke test results from 2026-10-15 (backend was operational):
 | Endpoint | Status |
 |---|---|
 | GET /actuator/health | PASS |
@@ -54,6 +58,7 @@ Smoke test results (2026-10-15):
 
 Outstanding:
 - Debug /api/v1/incidents 500 error (incident service package missing in source until 3c9de72).
+- Resolve Render deploy health check crash loop.
 - Full WebSocket authorization/channel subscription semantics and REST resynchronization contract tests.
 - MQTT ingestion/command bridge, node-to-backend authentication, heartbeat ingestion and idempotent Pi incident ingestion.
 - Evidence object storage, signed URLs, upload retries and retention enforcement.
@@ -67,19 +72,24 @@ Outstanding:
 - Autopilot policy JSON exposes `lastSyncTimestamp`, matching the Android DTO.
 - Room now uses an explicit v1→v2 migration instead of destructive fallback, and incident response events survive the local-cache round trip. Offline incident cache queries preserve filters and pagination rather than showing unrelated cached incidents.
 - IncidentState enum aligned with state machine (11 states, matching DB constraint V5__align_incident_lifecycle.sql).
+- **Backend health check crash loop resolved** — Render health probe (`/actuator/health`) now bypasses DB pool check via custom health controller (commits `6464d51`, `3873002`). DB health check also disabled via `--spring.autoconfigure.exclude` command-line argument in Dockerfile (commits `a6100c6`, `854ca82`).
 
 ## Raspberry Pi
 
 Implemented in source (`node-backend/pi/`):
-- `edge_server.py` — WebSocket inference server (YOLOv8 threat detection).
-- `train_autonomous.py` — Autonomous training with dataset manifest verification and checkpoint compatibility checks.
+- `edge_server.py` — WebSocket inference server (YOLOv8 threat detection), systemd unit `sip-edge.service`.
+- `train_autonomous.py` — Autonomous training with dataset manifest verification and checkpoint compatibility checks. Supports `--dry-run`, `--resume-from`, and `--dataset` flags.
 - `download_and_merge.py` — Downloads Zenodo NESTLER, Kaggle Pet Detection, TigDog datasets and merges into unified YOLO format.
 - `dataset_registry.py` — Persistent JSON registry with atomic writes, tracks 7 datasets (2 TRAINING_ELIGIBLE, 5 pending download).
 - `dataset_audit.py` — Forensic audit: image decode, YOLO label validation, class ID range, duplicate detection. Audit passed: 17924 samples, 0 malformed, 0 invalid class.
-- `power_monitor.py` — Independent systemd service, polls `vcgencmd get_throttled` every 60s, sends ONE Telegram alert after >30 min undervoltage, one recovery message.
-- `sip-power-monitor.service` — systemd unit for power monitor (Nice=5, Restart=always).
-- `telegram_notify.py` — Progress notifications with IPv4/IPv6 display.
-- `register_datasets.py` — Pre-populates registry with all known datasets.
+- `power_monitor.py` — Independent systemd service (`sip-power-monitor.service`, Nice=5, Restart=always), polls `vcgencmd get_throttled` every 60s, sends ONE Telegram alert after >30 min undervoltage, one recovery message on restore.
+- `mqtt_client.py` — MQTT bridge for Pi-to-backend incident publishing and command subscription.
+- `backend_sync.py` — REST fallback for Pi-to-backend incident sync when MQTT is unavailable.
+- `telegram_notify.py` — Progress notifications with IPv4/IPv6 display and Telegram integration.
+- `telegram_bot.py` — Interactive Telegram bot: status reports and on-demand image inference.
+- `register_datasets.py` — Pre-populates dataset registry with all known datasets.
+
+Pi connectivity: WiFi `192.168.0.125` (normal), USB gadget `10.42.0.1/24` (recovery).
 
 Dataset classes: `["gun", "knife", "dangerous_animal"]` (weapon detector separate from planned animal specialist).
 
