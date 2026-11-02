@@ -1,6 +1,7 @@
 package com.sip.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sip.backend.dto.NodeHeartbeatPayload;
 import com.sip.backend.dto.PiIncidentPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,13 +22,16 @@ public class MqttMessageHandler implements MessageHandler {
     private final PiIncidentIngestionService incidentService;
     private final PiAuthenticationService authService;
     private final MqttPublisher mqttPublisher;
+    private final NodeService nodeService;
 
     public MqttMessageHandler(ObjectMapper objectMapper, PiIncidentIngestionService incidentService,
-                              PiAuthenticationService authService, MqttPublisher mqttPublisher) {
+                              PiAuthenticationService authService, MqttPublisher mqttPublisher,
+                              NodeService nodeService) {
         this.objectMapper = objectMapper;
         this.incidentService = incidentService;
         this.authService = authService;
         this.mqttPublisher = mqttPublisher;
+        this.nodeService = nodeService;
     }
 
     @Override
@@ -71,9 +75,10 @@ public class MqttMessageHandler implements MessageHandler {
     }
 
     private void handleHeartbeatMessage(String topic, String payloadStr) throws Exception {
-        // NodeHeartbeat heartbeat = objectMapper.readValue(payloadStr, NodeHeartbeat.class);
-        log.debug("Heartbeat from {}: {}", topic.split("/")[1], payloadStr);
-        // TODO: Parse and save heartbeat, update node status
+        String nodeId = topic.split("/")[1];
+        NodeHeartbeatPayload payload = objectMapper.readValue(payloadStr, NodeHeartbeatPayload.class);
+        payload.setNodeId(nodeId);
+        nodeService.recordHeartbeat(nodeId, payload);
     }
 
     private void handleCommandAck(String topic, String payloadStr) throws Exception {
