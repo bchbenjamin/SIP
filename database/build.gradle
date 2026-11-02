@@ -20,10 +20,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-repositories {
-    mavenCentral()
-}
-
 configurations.all {
     resolutionStrategy { failOnVersionConflict() }
 }
@@ -60,5 +56,13 @@ dependencies {
 }
 
 tasks.named('test') { useJUnitPlatform() }
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['backend/src/main/java']
+        }
+    }
+}
 
 bootJar { archiveFileName = 'sip-backend-0.1.0.jar' }
