@@ -3,7 +3,7 @@ services:
     runtime: docker
     region: singapore
     plan: free
-    healthCheckPath: /
+    healthCheckPath: /health
     rootDir: ""
     autoDeploy: yes
     envVars:

@@ -65,11 +65,16 @@ management:
     web:
       exposure:
         include: health
+      base-path: /
   endpoint:
     health:
       show-details: never
-      db:
+      probes:
         enabled: false
   health:
     db:
+      enabled: false
+    ping:
+      enabled: false
+    diskSpace:
       enabled: false
