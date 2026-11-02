@@ -7,8 +7,7 @@ import java.util.Map;
 
 /**
  * Simple health check controller for Render and debugging.
- * Serves / and /health without requiring auth.
- * The actual /actuator/health is handled by Spring Actuator with DB checks disabled.
+ * Serves /, /health, and /actuator/health without requiring auth.
  */
 @RestController
 public class HealthController {
@@ -23,5 +22,11 @@ public class HealthController {
     @GetMapping("/health")
     public Map<String, String> health() {
         return Map.of("status", "ok", "service", "sip-backend");
+    }
+
+    /** Actuator health alias */
+    @GetMapping("/actuator/health")
+    public Map<String, String> actuatorHealth() {
+        return Map.of("status", "UP", "service", "sip-backend");
     }
 }
