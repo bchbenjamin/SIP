@@ -9,9 +9,10 @@ spring:
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
       minimum-idle: ${DB_POOL_MIN_IDLE:0}
-      connection-timeout: 20000
+      connection-timeout: 60000
       idle-timeout: 300000
       max-lifetime: 1200000
+      initialization-fail-timeout: 0
 
   jpa:
     hibernate:
@@ -25,9 +26,7 @@ spring:
           time_zone: UTC
 
   flyway:
-    enabled: true
-    baseline-on-migrate: false
-    locations: classpath:db/migration
+    enabled: false
 
   jackson:
     serialization:
