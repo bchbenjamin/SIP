@@ -36,7 +36,10 @@ DEVICE_SECRET = os.getenv("PI_DEVICE_SECRET", "changeme")
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8080").rstrip("/")
 BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
 
-HEADERS = {"Content-Type": "application/json"}
+HEADERS = {
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0 (X11; Linux aarch64) SIP-Edge-Node/1.0"
+}
 if BACKEND_API_KEY:
     HEADERS["X-API-Key"] = BACKEND_API_KEY
 
@@ -52,7 +55,10 @@ class BackendSync:
     def __init__(self, api_url: str = BACKEND_API_URL, api_key: str = BACKEND_API_KEY):
         self.api_url = api_url
         self.api_key = api_key
-        self.headers = {"Content-Type": "application/json"}
+        self.headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (X11; Linux aarch64) SIP-Edge-Node/1.0"
+        }
         if api_key:
             self.headers["X-API-Key"] = api_key
 

@@ -28,12 +28,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
+    private final ApiKeyAuthFilter apiKeyAuthFilter;
 
     @Value("${app.cors.allowed-origins:}")
     private String allowedOriginsRaw;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter, ApiKeyAuthFilter apiKeyAuthFilter) {
         this.jwtFilter = jwtFilter;
+        this.apiKeyAuthFilter = apiKeyAuthFilter;
     }
 
     @Bean
@@ -47,8 +49,10 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/", "/health", "/healthz", "/ping").permitAll()
                 .requestMatchers("/ws/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/nodes/*/heartbeat", "/api/v1/incidents").hasAnyRole("DEVICE", "NODE", "ADMIN", "OPERATOR")
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -58,35 +62,38 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         List<String> origins = getAllowedOrigins();
         if (origins.isEmpty()) {
-            // No origins configured — restrictive default (deny all cross-origin)
-            config.setAllowedOrigins(List.of());
+            config.setAllowedOriginPatterns(List.of("*"));
         } else {
             config.setAllowedOrigins(origins);
         }
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-API-Key", "X-Request-ID"));
-        config.setExposedHeaders(List.of("Authorization", "X-Request-ID"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
 
     private List<String> getAllowedOrigins() {
-        List<String> origins = new ArrayList<>();
-        if (allowedOriginsRaw != null && !allowedOriginsRaw.isBlank()) {
-            for (String o : allowedOriginsRaw.split(",")) {
-                String trimmed = o.trim();
-                if (!trimmed.isEmpty()) origins.add(trimmed);
+        if (allowedOriginsRaw == null || allowedOriginsRaw.isBlank()) {
+            return List.of();
+        }
+        String[] parts = allowedOriginsRaw.split(",");
+        List<String> result = new ArrayList<>();
+        for (String p : parts) {
+            String trimmed = p.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
             }
         }
-        return origins;
+        return result;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
