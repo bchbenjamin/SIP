@@ -51,9 +51,17 @@ public class PiIncidentIngestionService {
             }
         }
 
-        // Validate node exists
+        // Validate or auto-register node
         Node node = nodeRepository.findById(payload.getNodeId())
-                .orElseThrow(() -> new IllegalArgumentException("Unknown node: " + payload.getNodeId()));
+                .orElseGet(() -> {
+                    Node newNode = new Node();
+                    newNode.id = payload.getNodeId();
+                    newNode.name = "Raspberry Pi (" + payload.getNodeId() + ")";
+                    newNode.status = Node.NodeStatus.ONLINE;
+                    newNode.deviceSecret = payload.getNodeId();
+                    log.info("Auto-registered new node on incident ingestion: {}", payload.getNodeId());
+                    return nodeRepository.save(newNode);
+                });
 
         int tier = payload.getTier() != null ? payload.getTier() : 0;
 

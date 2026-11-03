@@ -32,7 +32,15 @@ public class NodeService {
     @Transactional
     public NodeHeartbeat recordHeartbeat(String nodeId, NodeHeartbeatPayload payload) {
         Node node = nodeRepository.findById(nodeId)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown node: " + nodeId));
+                .orElseGet(() -> {
+                    Node newNode = new Node();
+                    newNode.id = nodeId;
+                    newNode.name = "Raspberry Pi (" + nodeId + ")";
+                    newNode.status = Node.NodeStatus.ONLINE;
+                    newNode.deviceSecret = nodeId;
+                    log.info("Auto-registered new node on heartbeat: {}", nodeId);
+                    return nodeRepository.save(newNode);
+                });
 
         OffsetDateTime ts = payload.getTimestamp() != null
                 ? payload.getTimestamp().atOffset(ZoneOffset.UTC)
