@@ -1,0 +1,6 @@
+spring:
+  datasource:
+    # Development specific settings can be overridden here if needed, otherwise inherit from base
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/sip_dev}
+  jpa:
+    show-sql: true
