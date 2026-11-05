@@ -57,4 +57,12 @@ dependencies {
 
 tasks.named('test') { useJUnitPlatform() }
 
-bootJar { archiveFileName = 'sip-backend-0.1.0.jar' }
+bootJar {
+    archiveFileName = 'sip-backend-0.1.0.jar'
+    doLast {
+        copy {
+            from archiveFile
+            into projectDir
+        }
+    }
+}

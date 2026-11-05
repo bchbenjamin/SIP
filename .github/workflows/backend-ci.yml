@@ -4,12 +4,12 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "backend/**"
+      - "database/backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches: ["main"]
     paths:
-      - "backend/**"
+      - "database/backend/**"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
@@ -20,23 +20,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
 
-      - name: Install Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
-
       - name: Test and package backend
-        working-directory: backend
+        working-directory: database/backend
         env:
           JWT_SECRET: "ci-only-signing-secret-that-is-at-least-32-bytes-long"
+          sJWT_SECRET: "ci-only-signing-secret-that-is-at-least-32-bytes-long"
           SPRING_PROFILES_ACTIVE: test
-        run: ./gradlew --no-daemon clean test bootJar
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon clean test bootJar
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sip-backend-jar
+          path: database/backend/build/libs/sip-backend-0.1.0.jar
+          if-no-files-found: error
+          retention-days: 14
