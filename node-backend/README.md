@@ -6,11 +6,11 @@ The system connects a Laptop (visual sensor node + browser dashboard) to a Raspb
 
 ---
 
-## Current Status (2026-11-01)
+## Current Status (2026-11-05)
 
-**Backend:** Deploy at `https://api.sip.bchbenjamin.in` — currently failing health probes after recent actuator security changes. The Render health check probe hits `/actuator/health` before the Neon PostgreSQL pool is ready, causing premature container restarts. Fixes applied in commits `3873002` (custom health controller) and `6464d51` (disable actuator endpoints). Verify health at:
+**Backend:** Deployed on Render at `https://api.sip.bchbenjamin.in` — **LIVE & HEALTHY**. Health probes return HTTP 200 OK (`{"status":"UP"}`), and incident endpoints are fully operational. Verify health at:
 ```bash
-curl https://api.sip.bchbenjamin.in/actuator/health
+curl https://api.sip.bchbenjamin.in/health
 ```
 
 **Pi Connectivity:**
@@ -145,7 +145,7 @@ Credentials are stored in `.env` (gitignored):
 ```env
 IP_ADDRESS=192.168.0.125
 USERNAME=benjamin
-PASSWORD=13122006
+PASSWORD=<SSH_PASSWORD>
 ```
 
 Dashboard WebSocket config: `dashboard/.env.local`
