@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 """
 Autonomous weapon detection training script for Raspberry Pi 5.
-Designed to run as a systemd service — autostart on boot, crash recovery, Telegram notifications.
-Maximizes CPU and memory usage.
+Designed to run safely as a background process or systemd service.
+Features:
+- Dynamic class configuration matching data.yaml (prevents false incompatibility)
+- Checkpoint preservation (never overwrites previous run weights)
+- Timestamped run directories for new runs
+- Safe graceful fallback on memory constraints
+- Telegram notifications
 """
 
+import argparse
+from datetime import datetime
 import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
+import time
 import traceback
 
 import yaml
@@ -21,41 +29,42 @@ UNIFIED_DATASET = os.path.join(HOME, "edge-ai", "unified_weapon_dataset", "data.
 FALLBACK_DATASET = os.path.join(HOME, "gun-and-knife-detection-1", "data.yaml")
 CHECKPOINT = os.path.join(HOME, "runs", "detect", "train", "weights", "last.pt")
 NOTIFY_SCRIPT = os.path.join(HOME, "edge-ai", "telegram_notify.py")
-MANIFEST_PATH = os.path.join(HOME, "edge-ai", "datasets_manifest.json")
-
-# Expected merged dataset configuration
-EXPECTED_CLASSES = ["gun", "knife", "dangerous_animal"]
-EXPECTED_NC = len(EXPECTED_CLASSES)
+MANIFEST_PATHS = [
+    os.path.join(HOME, "edge-ai", "dataset_registry.json"),
+    os.path.join(HOME, "edge-ai", "datasets_manifest.json"),
+]
 
 # Add edge-ai to path for telegram_notify
 sys.path.insert(0, os.path.join(HOME, "edge-ai"))
 
 
 def notify(cmd, *args):
-    """Send a Telegram notification."""
+    """Send a Telegram notification if configured."""
     try:
-        subprocess.run(
-            [VENV_PYTHON, NOTIFY_SCRIPT, cmd] + list(args),
-            timeout=30, check=False,
-            cwd=HOME
-        )
+        if os.path.exists(NOTIFY_SCRIPT) and os.path.exists(VENV_PYTHON):
+            subprocess.run(
+                [VENV_PYTHON, NOTIFY_SCRIPT, cmd] + list(args),
+                timeout=30, check=False,
+                cwd=HOME
+            )
     except Exception:
         pass
 
 
 def load_manifest():
-    """Load and return the datasets_manifest.json, or None if missing."""
-    if not os.path.exists(MANIFEST_PATH):
-        return None
-    try:
-        with open(MANIFEST_PATH) as f:
-            return json.load(f)
-    except Exception:
-        return None
+    """Load dataset manifest or registry from known locations."""
+    for path in MANIFEST_PATHS:
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    return json.load(f), path
+            except Exception:
+                continue
+    return None, None
 
 
 def load_data_yaml(path):
-    """Load and return a data.yaml, or None if missing/invalid."""
+    """Load and return data.yaml content or None."""
     if not os.path.exists(path):
         return None
     try:
@@ -65,347 +74,179 @@ def load_data_yaml(path):
         return None
 
 
-def verify_dataset_manifest(manifest):
+def get_dataset_classes(data_yaml_path):
+    """Dynamically determine classes from data.yaml, falling back to gun & knife."""
+    data = load_data_yaml(data_yaml_path)
+    if data and "names" in data:
+        names = data["names"]
+        if isinstance(names, dict):
+            names = [names[k] for k in sorted(names.keys())]
+        return names, len(names)
+    return ["gun", "knife"], 2
+
+
+def backup_existing_weights():
+    """Safely back up any existing checkpoints into an archive directory."""
+    weights_dir = os.path.join(HOME, "runs", "detect", "train", "weights")
+    if not os.path.exists(weights_dir):
+        return
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archive_dir = os.path.join(HOME, "runs", "detect", "checkpoints_archive", timestamp)
+    os.makedirs(archive_dir, exist_ok=True)
+
+    copied = 0
+    for fname in os.listdir(weights_dir):
+        if fname.endswith(".pt"):
+            src = os.path.join(weights_dir, fname)
+            dst = os.path.join(archive_dir, fname)
+            shutil.copy2(src, dst)
+            copied += 1
+
+    if copied > 0:
+        print(f"[safety] Archived {copied} checkpoints to {archive_dir}")
+
+
+def verify_checkpoint_compatibility(checkpoint_path, expected_nc, expected_classes):
     """
-    Verify the dataset manifest matches the expected merged dataset config.
-    Returns (True, reason) if valid, (False, reason) if incompatible.
-    """
-    if manifest is None:
-        return False, "No datasets_manifest.json found — run download_and_merge.py first"
-
-    # Check classes match
-    manifest_classes = manifest.get("classes", [])
-    if manifest_classes != EXPECTED_CLASSES:
-        return False, (
-            f"Dataset manifest has wrong classes: {manifest_classes} "
-            f"(expected {EXPECTED_CLASSES}). "
-            "Run download_and_merge.py to regenerate the unified dataset."
-        )
-
-    # Check stats exist
-    stats = manifest.get("stats", {})
-    if not stats:
-        return False, "Dataset manifest has no stats — dataset may be incomplete"
-
-    total_images = sum(s.get("images", 0) for s in stats.values())
-    if total_images < 100:
-        return False, (
-            f"Dataset manifest has only {total_images} images — insufficient for training. "
-            "Wait for download_and_merge.py to complete."
-        )
-
-    return True, f"Manifest verified: {total_images} images across {list(stats.keys())}"
-
-
-def verify_checkpoint_compatibility(checkpoint_path, expected_nc):
-    """
-    Verify that a YOLO checkpoint is compatible with the expected number of classes.
-    YOLO checkpoints embed the class count in their metadata.
-    Returns (True, metadata) if compatible, (False, reason) if not.
+    Verify that a YOLO checkpoint is compatible with the expected dataset.
+    Returns (True, reason) if compatible, (False, reason) if not.
     """
     if not os.path.exists(checkpoint_path):
         return False, "No checkpoint found"
 
     try:
-        # Load checkpoint metadata without loading full model
         from ultralytics import YOLO
         model = YOLO(checkpoint_path)
-        ckpt_data = model.ckpt
+        ckpt_data = getattr(model, "ckpt", None)
+        if not ckpt_data or not isinstance(ckpt_data, dict):
+            return True, "Checkpoint loaded, metadata not directly inspectable"
 
-        # Check embedded class count
         nc = ckpt_data.get("nc", None)
-        if nc is None:
-            # Try reading from model info
-            return True, "Checkpoint class count not in metadata, assuming compatible"
+        if nc is not None and nc != expected_nc:
+            return False, f"Checkpoint has nc={nc}, but dataset requires nc={expected_nc}"
 
-        if nc != expected_nc:
-            return False, (
-                f"Checkpoint trained for {nc} classes but current dataset has {expected_nc}. "
-                "Cannot resume — class counts must match. "
-                "Remove {0} to start fresh with the new merged dataset.".format(checkpoint_path)
-            )
-
-        # Check model type matches
-        model_name = ckpt_data.get("model_name", "")
-        if model_name and "yolov8" not in model_name.lower():
-            return False, f"Checkpoint is {model_name}, expected YOLOv8"
-
-        # Verify class names if available
         names = ckpt_data.get("names", {})
-        if names and len(names) == expected_nc:
-            names_list = [names.get(i, "") for i in range(len(names))]
-            if names_list != EXPECTED_CLASSES:
-                return False, (
-                    f"Checkpoint class names {names_list} don't match expected {EXPECTED_CLASSES}"
-                )
+        if names and isinstance(names, dict) and len(names) == expected_nc:
+            names_list = [names[i] for i in range(len(names))]
+            if names_list != expected_classes:
+                return False, f"Checkpoint class names {names_list} mismatch {expected_classes}"
 
-        return True, f"Checkpoint compatible: {nc} classes, model={model_name}"
-
+        return True, f"Checkpoint compatible: nc={nc}"
     except Exception as e:
-        # If we can't read the checkpoint metadata, be conservative and warn but allow use
-        return True, f"Could not verify checkpoint metadata ({e}), attempting to use it"
+        return True, f"Could not inspect checkpoint metadata ({e}), allowing resume attempt"
 
 
-def verify_data_yaml(data_yaml_path, expected_nc):
-    """
-    Verify the data.yaml has the correct number of classes.
-    Returns (True, reason) if valid, (False, reason) if incompatible.
-    """
-    data = load_data_yaml(data_yaml_path)
-    if data is None:
-        return False, f"data.yaml not found at {data_yaml_path}"
-
-    nc = data.get("nc", 0)
-    names = data.get("names", [])
-
-    if nc != expected_nc:
-        return False, (
-            f"data.yaml has nc={nc} but expected {expected_nc}. "
-            "The unified dataset may have been rebuilt with different classes. "
-            "Remove {0} and run download_and_merge.py to regenerate.".format(data_yaml_path)
-        )
-
-    if names != EXPECTED_CLASSES:
-        return False, (
-            f"data.yaml class names {names} don't match expected {EXPECTED_CLASSES}"
-        )
-
-    return True, f"data.yaml verified: nc={nc}, names={names}"
-
-
-def should_use_checkpoint(checkpoint_path, manifest_path, data_yaml_path):
-    """
-    Decide whether to resume from the existing checkpoint or start fresh.
-    Returns (True, reason) to resume, (False, reason) to start fresh.
-    """
-    # 1. Verify dataset manifest
-    manifest = load_manifest()
-    manifest_ok, manifest_reason = verify_dataset_manifest(manifest)
-    print(f"[verify] Manifest: {manifest_reason}")
-
-    if not manifest_ok:
-        return False, f"Manifest invalid — starting fresh: {manifest_reason}"
-
-    # 2. Verify data.yaml matches expected classes
-    yaml_ok, yaml_reason = verify_data_yaml(data_yaml_path, EXPECTED_NC)
-    print(f"[verify] data.yaml: {yaml_reason}")
-
-    if not yaml_ok:
-        return False, f"data.yaml invalid — starting fresh: {yaml_reason}"
-
-    # 3. Verify checkpoint compatibility
-    if not os.path.exists(checkpoint_path):
-        return False, "No checkpoint found — starting fresh"
-
-    ckpt_ok, ckpt_reason = verify_checkpoint_compatibility(checkpoint_path, EXPECTED_NC)
-    print(f"[verify] Checkpoint: {ckpt_reason}")
-
-    if not ckpt_ok:
-        # Move the incompatible checkpoint aside instead of deleting
-        backup_path = checkpoint_path.replace(".pt", "_incompatible.pt")
-        try:
-            shutil.move(checkpoint_path, backup_path)
-            print(f"[verify] Moved incompatible checkpoint to {backup_path}")
-        except Exception:
-            pass
-        return False, f"Checkpoint incompatible — starting fresh: {ckpt_reason}"
-
-    return True, f"Checkpoint verified and compatible"
-
-
-def prepare_datasets():
-    """Download and merge datasets if unified dataset doesn't exist."""
-    if os.path.exists(UNIFIED_DATASET):
-        # Verify the existing dataset is compatible before using
-        yaml_ok, yaml_reason = verify_data_yaml(UNIFIED_DATASET, EXPECTED_NC)
-        if yaml_ok:
-            print(f"Unified dataset verified: {yaml_reason}")
-            return UNIFIED_DATASET
-        else:
-            print(f"Existing data.yaml incompatible: {yaml_reason}")
-            print("Re-running download_and_merge.py to regenerate...")
-
-    print("Unified dataset not found or invalid. Running download_and_merge.py...")
-    merge_script = os.path.join(HOME, "edge-ai", "download_and_merge.py")
-    if os.path.exists(merge_script):
-        try:
-            subprocess.run(
-                [VENV_PYTHON, merge_script],
-                timeout=7200,  # 2 hour timeout
-                check=True,
-                cwd=HOME
-            )
-        except Exception as e:
-            print(f"Merge script failed: {e}")
-
+def resolve_dataset():
+    """Identify the valid dataset yaml path."""
     if os.path.exists(UNIFIED_DATASET):
         return UNIFIED_DATASET
     elif os.path.exists(FALLBACK_DATASET):
-        print(f"Falling back to original dataset: {FALLBACK_DATASET}")
+        print(f"Using fallback dataset: {FALLBACK_DATASET}")
         return FALLBACK_DATASET
     else:
-        raise FileNotFoundError(
-            "No dataset found! Run download_and_merge.py to create the unified dataset."
-        )
+        raise FileNotFoundError(f"Neither {UNIFIED_DATASET} nor {FALLBACK_DATASET} exists.")
 
 
-def train():
-    """Run YOLOv8 training with maximum resource usage."""
+def train(epochs=150, batch=4, imgsz=416, dry_run=False):
+    """Execute training safely without overwriting previous runs."""
     from ultralytics import YOLO
 
-    # Determine dataset
-    data_yaml = prepare_datasets()
-    print(f"Using dataset: {data_yaml}")
+    data_yaml = resolve_dataset()
+    expected_classes, expected_nc = get_dataset_classes(data_yaml)
+    print(f"[config] Dataset: {data_yaml}")
+    print(f"[config] Expected classes: {expected_classes} (nc={expected_nc})")
 
-    # Verify checkpoint compatibility before deciding to resume
-    resume_checkpoint, resume_reason = should_use_checkpoint(
-        CHECKPOINT, MANIFEST_PATH, UNIFIED_DATASET
-    )
-    print(f"[train] Checkpoint decision: {resume_reason}")
+    # Check manifest
+    manifest, manifest_path = load_manifest()
+    if manifest:
+        print(f"[config] Found manifest at: {manifest_path}")
 
-    if resume_checkpoint:
-        print(f"Resuming from checkpoint: {CHECKPOINT}")
+    # Check resume eligibility
+    can_resume = False
+    if os.path.exists(CHECKPOINT):
+        compat, reason = verify_checkpoint_compatibility(CHECKPOINT, expected_nc, expected_classes)
+        print(f"[checkpoint] Compatibility: {reason}")
+        can_resume = compat
+
+    # Archive existing weights before starting anything
+    backup_existing_weights()
+
+    if dry_run:
+        print("[dry-run] Dry run completed successfully. Configuration is valid.")
+        return
+
+    run_name = "train" if can_resume else f"train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    resume_flag = can_resume
+
+    if can_resume:
+        print(f"Resuming run from {CHECKPOINT} in runs/detect/train")
         model = YOLO(CHECKPOINT)
-        resume = True
     else:
-        print("Starting fresh with yolov8n.pt")
+        print(f"Starting new isolated run: runs/detect/{run_name}")
         model = YOLO("yolov8n.pt")
-        resume = False
 
-    notify("start", f"Using dataset: {data_yaml}\nResume: {resume}")
+    notify("start", f"Run: {run_name}\nClasses: {expected_classes}\nResume: {resume_flag}")
 
-    # Train with MAXIMUM resource usage
-    # RPi5 has 4 cores and 4GB RAM
     try:
         model.train(
             data=data_yaml,
-            epochs=150,
-            batch=4,            # Doubled from 2 — uses more RAM
-            imgsz=416,          # Larger images for better accuracy
+            epochs=epochs,
+            batch=batch,
+            imgsz=imgsz,
             device="cpu",
-            workers=0,          # Reduced from 4 for ARM CPU (0 to prevent crash)
-            save_period=5,      
+            workers=0,
+            save_period=5,
             project="runs/detect",
-            name="train",
-            exist_ok=True,
-            resume=resume,
-            patience=0,        
-            cache=False,        # Disable cache to prevent OOM
-            plots=True,        # Generate results.png
+            name=run_name,
+            exist_ok=can_resume,
+            resume=resume_flag,
+            patience=0,
+            cache=False,
+            plots=True,
             verbose=True,
         )
-        notify("complete")
-        print("Training complete!")
+        notify("complete", f"Training {run_name} complete!")
+        print(f"Training run {run_name} complete!")
 
-    except AssertionError as e:
-        if "nothing to resume" in str(e):
-            print("Previous training run reached its epoch limit.")
-            print("Backing up checkpoint and starting a new training run to continue training...")
-            notify("start", "Starting a new training run from the finished checkpoint to reach higher epochs.")
-
-            backup_ckpt = os.path.join(HOME, "last_backup.pt")
-            shutil.copy(CHECKPOINT, backup_ckpt)
-
-            # Re-verify manifest before starting a new run
-            manifest = load_manifest()
-            manifest_ok, manifest_reason = verify_dataset_manifest(manifest)
-            if not manifest_ok:
-                raise RuntimeError(
-                    f"Cannot start extended training: {manifest_reason}"
-                )
-
-            model = YOLO(backup_ckpt)
-            model.train(
+    except (RuntimeError, MemoryError, OSError) as e:
+        if "out of memory" in str(e).lower() or isinstance(e, (MemoryError, OSError)):
+            print("[fallback] Memory limit encountered, falling back to batch=2, imgsz=320...")
+            notify("crash", f"OOM fallback triggered: {str(e)[:200]}")
+            fallback_run = f"train_fallback_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            model_fallback = YOLO("yolov8n.pt")
+            model_fallback.train(
                 data=data_yaml,
-                epochs=150,
-                batch=4,
-                imgsz=416,
+                epochs=epochs,
+                batch=2,
+                imgsz=320,
                 device="cpu",
                 workers=0,
                 save_period=5,
                 project="runs/detect",
-                name="train",
-                exist_ok=True,
+                name=fallback_run,
+                exist_ok=False,
                 resume=False,
                 patience=0,
                 cache=False,
                 plots=True,
                 verbose=True,
             )
-            notify("complete", "New extended training run complete!")
-            return
-        raise
-
-    except (RuntimeError, MemoryError, OSError) as e:
-        if "out of memory" in str(e).lower() or "oom" in str(e).lower() or isinstance(e, (MemoryError, OSError)):
-            print(f"OOM or MemoryError with initial settings, falling back to batch=2/imgsz=320/workers=0...")
-            notify("crash", f"OOM/MemoryError — retrying with smaller batch.\n{str(e)[:200]}")
-
-            # Retry with smaller settings
-            if os.path.exists(CHECKPOINT):
-                model = YOLO(CHECKPOINT)
-                resume = True
-            else:
-                model = YOLO("yolov8n.pt")
-                resume = False
-
-            try:
-                model.train(
-                    data=data_yaml,
-                    epochs=150,
-                    batch=2,
-                    imgsz=320,
-                    device="cpu",
-                    workers=0,
-                    save_period=5,
-                    project="runs/detect",
-                    name="train",
-                    exist_ok=True,
-                    resume=resume,
-                    patience=0,
-                    cache=False,
-                    plots=True,
-                    verbose=True,
-                )
-                notify("complete")
-            except AssertionError as e:
-                if "nothing to resume" in str(e):
-                    print("Previous training run reached its epoch limit.")
-                    print("Backing up checkpoint and starting a new fallback training run...")
-                    notify("start", "Fallback: Starting a new training run from the finished checkpoint.")
-
-                    backup_ckpt = os.path.join(HOME, "last_backup.pt")
-                    if os.path.exists(CHECKPOINT):
-                        shutil.copy(CHECKPOINT, backup_ckpt)
-                        model = YOLO(backup_ckpt)
-                    
-                    model.train(
-                        data=data_yaml,
-                        epochs=150,
-                        batch=2,
-                        imgsz=320,
-                        device="cpu",
-                        workers=0,
-                        save_period=5,
-                        project="runs/detect",
-                        name="train",
-                        exist_ok=True,
-                        resume=False,
-                        patience=0,
-                        cache=False,
-                        plots=True,
-                        verbose=True,
-                    )
-                    notify("complete", "New fallback training run complete!")
-                    return
-                raise
+            notify("complete", f"Fallback training {fallback_run} complete!")
         else:
             raise
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Autonomous Safe YOLOv8 Training")
+    parser.add_argument("--epochs", type=int, default=150, help="Number of epochs")
+    parser.add_argument("--batch", type=int, default=4, help="Batch size")
+    parser.add_argument("--imgsz", type=int, default=416, help="Image size")
+    parser.add_argument("--dry-run", action="store_true", help="Validate config without training")
+    args = parser.parse_args()
+
     try:
-        train()
+        train(epochs=args.epochs, batch=args.batch, imgsz=args.imgsz, dry_run=args.dry_run)
     except Exception as e:
         tb = traceback.format_exc()
         print(f"FATAL: {e}\n{tb}", file=sys.stderr)

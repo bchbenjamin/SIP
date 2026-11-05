@@ -46,3 +46,8 @@ jobs:
           path: database/backend/build/libs/sip-backend-0.1.0.jar
           if-no-files-found: error
           retention-days: 14
+
+      - name: Verify Docker build
+        run: |
+          docker build -t sip-backend:ci .
+

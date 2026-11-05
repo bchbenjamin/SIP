@@ -9,6 +9,7 @@ import sys
 import shutil
 import subprocess
 import glob
+import hashlib
 import random
 import yaml
 
@@ -18,11 +19,36 @@ UNIFIED_DIR = os.path.join(HOME, "edge-ai", "unified_weapon_dataset")
 VENV_PIP = os.path.join(HOME, "edge-ai", "pi", ".venv", "bin", "pip")
 VENV_PYTHON = os.path.join(HOME, "edge-ai", "pi", ".venv", "bin", "python3")
 
-# Unified class mapping
-# Class 0: gun (weapon)
-# Class 1: knife (weapon)
-# Class 2: dangerous_animal (dogs, tigers, elephants, wolves, bears, etc.)
-CLASSES = ["gun", "knife", "dangerous_animal"]
+# Unified class mapping (Canonical: 2-class weapon detection)
+CLASSES = ["gun", "knife"]
+
+# Global seen hashes to prevent cross-dataset duplicate leakage across splits
+SEEN_IMAGE_HASHES = set()
+
+
+def get_file_sha256(filepath):
+    """Compute SHA-256 hash of an image file for deduplication."""
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def assign_split_deterministically(img_sha256):
+    """
+    Deterministically assign an image to train/valid/test based on its content hash.
+    80% train, 10% valid, 10% test.
+    Guarantees no data leakage across splits.
+    """
+    bucket = int(img_sha256[:8], 16) % 100
+    if bucket < 80:
+        return "train"
+    elif bucket < 90:
+        return "valid"
+    else:
+        return "test"
+
 
 
 def log(msg):
@@ -270,41 +296,56 @@ def remap_classes(label_path, class_mapping):
 
 
 def merge_datasets():
-    """Merge all datasets into a unified YOLO dataset."""
-    log("=== Merging all datasets ===")
+    """Merge all datasets into a unified YOLO dataset with strict leakage prevention."""
+    log("=== Merging all datasets (Deterministic Split & Deduplication) ===")
 
     os.makedirs(UNIFIED_DIR, exist_ok=True)
     for split in ["train", "valid", "test"]:
         os.makedirs(os.path.join(UNIFIED_DIR, split, "images"), exist_ok=True)
         os.makedirs(os.path.join(UNIFIED_DIR, split, "labels"), exist_ok=True)
 
-    all_pairs = []
+    global idx
     idx = 0
+
+    def copy_pair_safe(img_path, lbl_path, prefix, class_map, force_split=None):
+        global idx
+        try:
+            img_hash = get_file_sha256(img_path)
+        except Exception:
+            return False
+
+        # Deduplicate identical images across all sources to eliminate split leakage
+        if img_hash in SEEN_IMAGE_HASHES:
+            return False
+        SEEN_IMAGE_HASHES.add(img_hash)
+
+        split_name = force_split if force_split else assign_split_deterministically(img_hash)
+        ext = os.path.splitext(img_path)[1]
+        new_name = f"{prefix}_{idx:06d}"
+        idx += 1
+
+        dst_img = os.path.join(UNIFIED_DIR, split_name, "images", new_name + ext)
+        dst_lbl = os.path.join(UNIFIED_DIR, split_name, "labels", new_name + ".txt")
+
+        shutil.copy2(img_path, dst_img)
+        remapped = remap_classes(lbl_path, class_map)
+        with open(dst_lbl, "w") as f:
+            f.write("\n".join(remapped) + "\n" if remapped else "")
+        return True
 
     # === 1. Original Roboflow dataset ===
     roboflow_dir = os.path.join(HOME, "gun-and-knife-detection-1")
     if os.path.exists(roboflow_dir):
         log(f"Processing Roboflow dataset at {roboflow_dir}")
-        # Roboflow classes: 0=gun, 1=knife (already matches our unified schema)
         class_map = {0: 0, 1: 1}
 
-        for split_name, split_dir in [("train", "train"), ("valid", "valid"), ("test", "test")]:
-            img_dir = os.path.join(roboflow_dir, split_dir, "images")
+        for split_name in ["train", "valid", "test"]:
+            img_dir = os.path.join(roboflow_dir, split_name, "images")
             if os.path.exists(img_dir):
                 pairs = find_yolo_images_and_labels(img_dir)
                 log(f"  Roboflow {split_name}: {len(pairs)} image-label pairs")
                 for img_path, lbl_path in pairs:
-                    ext = os.path.splitext(img_path)[1]
-                    new_name = f"rf_{idx:06d}"
-                    idx += 1
-
-                    dst_img = os.path.join(UNIFIED_DIR, split_name, "images", new_name + ext)
-                    dst_lbl = os.path.join(UNIFIED_DIR, split_name, "labels", new_name + ".txt")
-
-                    shutil.copy2(img_path, dst_img)
-                    remapped = remap_classes(lbl_path, class_map)
-                    with open(dst_lbl, "w") as f:
-                        f.write("\n".join(remapped) + "\n" if remapped else "")
+                    copy_pair_safe(img_path, lbl_path, "rf", class_map, force_split=split_name)
 
     # === 2. Kaggle datasets ===
     kaggle_dir = os.path.join(os.path.expanduser("~/.cache/kagglehub/datasets"))
@@ -313,9 +354,8 @@ def merge_datasets():
             ds_path = os.path.join(kaggle_dir, ds_name)
             log(f"Scanning Kaggle dataset: {ds_name}")
 
-            # Check if there's a data.yaml to understand class mapping
             yaml_files = glob.glob(os.path.join(ds_path, "**", "data.yaml"), recursive=True)
-            class_map = {0: 0, 1: 1}  # Default
+            class_map = {0: 0, 1: 1}
 
             if yaml_files:
                 try:
@@ -326,43 +366,19 @@ def merge_datasets():
                         if isinstance(names, list):
                             for i, name in enumerate(names):
                                 name_lower = name.lower()
-                                if "gun" in name_lower or "pistol" in name_lower or "rifle" in name_lower or "firearm" in name_lower or "weapon" in name_lower:
-                                    class_map[i] = 0  # gun
-                                elif "knife" in name_lower or "blade" in name_lower:
-                                    class_map[i] = 1  # knife
+                                if any(w in name_lower for w in ["gun", "pistol", "rifle", "firearm", "weapon"]):
+                                    class_map[i] = 0
+                                elif any(w in name_lower for w in ["knife", "blade"]):
+                                    class_map[i] = 1
                                 else:
-                                    class_map[i] = 0  # Default to gun for other weapon types
+                                    class_map[i] = 0
                 except Exception:
                     pass
 
             pairs = find_yolo_images_and_labels(ds_path)
             log(f"  Found {len(pairs)} image-label pairs")
-
-            if pairs:
-                # Split 80/10/10
-                random.shuffle(pairs)
-                n = len(pairs)
-                train_end = int(n * 0.8)
-                val_end = int(n * 0.9)
-                splits = {
-                    "train": pairs[:train_end],
-                    "valid": pairs[train_end:val_end],
-                    "test": pairs[val_end:],
-                }
-
-                for split_name, split_pairs in splits.items():
-                    for img_path, lbl_path in split_pairs:
-                        ext = os.path.splitext(img_path)[1]
-                        new_name = f"kg_{idx:06d}"
-                        idx += 1
-
-                        dst_img = os.path.join(UNIFIED_DIR, split_name, "images", new_name + ext)
-                        dst_lbl = os.path.join(UNIFIED_DIR, split_name, "labels", new_name + ".txt")
-
-                        shutil.copy2(img_path, dst_img)
-                        remapped = remap_classes(lbl_path, class_map)
-                        with open(dst_lbl, "w") as f:
-                            f.write("\n".join(remapped) + "\n" if remapped else "")
+            for img_path, lbl_path in pairs:
+                copy_pair_safe(img_path, lbl_path, "kg", class_map)
 
     # === 3. GitHub OD-WeaponDetection ===
     github_dir = os.path.join(DATASETS_DIR, "OD-WeaponDetection")
@@ -370,123 +386,9 @@ def merge_datasets():
         log(f"Processing GitHub OD-WeaponDetection")
         pairs = find_yolo_images_and_labels(github_dir)
         log(f"  Found {len(pairs)} image-label pairs")
-
-        # Attempt to find data.yaml for class mapping
-        yaml_files = glob.glob(os.path.join(github_dir, "**", "*.yaml"), recursive=True)
         class_map = {0: 0, 1: 1}
-        for yf in yaml_files:
-            try:
-                with open(yf, "r") as f:
-                    ds_yaml = yaml.safe_load(f)
-                if "names" in ds_yaml:
-                    names = ds_yaml["names"]
-                    if isinstance(names, list):
-                        for i, name in enumerate(names):
-                            name_lower = name.lower()
-                            if "gun" in name_lower or "pistol" in name_lower:
-                                class_map[i] = 0
-                            elif "knife" in name_lower:
-                                class_map[i] = 1
-                            else:
-                                class_map[i] = 0
-                    break
-            except Exception:
-                continue
-
-        if pairs:
-            random.shuffle(pairs)
-            n = len(pairs)
-            train_end = int(n * 0.8)
-            val_end = int(n * 0.9)
-            splits = {
-                "train": pairs[:train_end],
-                "valid": pairs[train_end:val_end],
-                "test": pairs[val_end:],
-            }
-
-            for split_name, split_pairs in splits.items():
-                for img_path, lbl_path in split_pairs:
-                    ext = os.path.splitext(img_path)[1]
-                    new_name = f"gh_{idx:06d}"
-                    idx += 1
-
-                    dst_img = os.path.join(UNIFIED_DIR, split_name, "images", new_name + ext)
-                    dst_lbl = os.path.join(UNIFIED_DIR, split_name, "labels", new_name + ".txt")
-
-                    shutil.copy2(img_path, dst_img)
-                    remapped = remap_classes(lbl_path, class_map)
-                    with open(dst_lbl, "w") as f:
-                        f.write("\n".join(remapped) + "\n" if remapped else "")
-
-    # === 3b. Zenodo NESTLER wild animal datasets ===
-    zenodo_dirs = [
-        "NESTLER_Safari",
-        "NESTLER_ElephantsGorillasKobs",
-        "NESTLER_FoxesVulturesRavens",
-    ]
-    for zenodo_name in zenodo_dirs:
-        zenodo_dir = os.path.join(DATASETS_DIR, zenodo_name)
-        if not os.path.exists(zenodo_dir):
-            continue
-
-        log(f"Processing Zenodo dataset: {zenodo_name}")
-        pairs = find_yolo_images_and_labels(zenodo_dir)
-        log(f"  Found {len(pairs)} image-label pairs")
-
-        # Class mapping: all animals → class 2 (dangerous_animal)
-        if pairs:
-            class_map = {0: 2}
-            random.shuffle(pairs)
-            n = len(pairs)
-            train_end = int(n * 0.8)
-            val_end = int(n * 0.9)
-            splits = {
-                "train": pairs[:train_end],
-                "valid": pairs[train_end:val_end],
-                "test": pairs[val_end:],
-            }
-            for split_name, split_pairs in splits.items():
-                for img_path, lbl_path in split_pairs:
-                    ext = os.path.splitext(img_path)[1]
-                    new_name = f"zn_{idx:06d}"
-                    idx += 1
-                    dst_img = os.path.join(UNIFIED_DIR, split_name, "images", new_name + ext)
-                    dst_lbl = os.path.join(UNIFIED_DIR, split_name, "labels", new_name + ".txt")
-                    shutil.copy2(img_path, dst_img)
-                    remapped = remap_classes(lbl_path, class_map)
-                    with open(dst_lbl, "w") as f:
-                        f.write("\n".join(remapped) + "\n" if remapped else "")
-
-    # === 3c. TigDog dataset (tiger/dog detection) ===
-    tigdog_dir = os.path.join(DATASETS_DIR, "TigDog")
-    if os.path.exists(tigdog_dir):
-        log(f"Processing TigDog dataset")
-        pairs = find_yolo_images_and_labels(tigdog_dir)
-        log(f"  Found {len(pairs)} image-label pairs")
-
-        # Class mapping: tigers and dogs → class 2 (dangerous_animal)
-        if pairs:
-            class_map = {0: 2, 1: 2}
-            random.shuffle(pairs)
-            n = len(pairs)
-            train_end = int(n * 0.8)
-            val_end = int(n * 0.9)
-            splits = {
-                "train": pairs[:train_end],
-                "valid": pairs[train_end:val_end],
-                "test": pairs[val_end:],
-            }
-            for split_name, split_pairs in splits.items():
-                for img_path, lbl_path in split_pairs:
-                    ext = os.path.splitext(img_path)[1]
-                    new_name = f"td_{idx:06d}"
-                    idx += 1
-                    dst_img = os.path.join(UNIFIED_DIR, split_name, "images", new_name + ext)
-                    dst_lbl = os.path.join(UNIFIED_DIR, split_name, "labels", new_name + ".txt")
-                    shutil.copy2(img_path, dst_img)
-                    remapped = remap_classes(lbl_path, class_map)
-                    with open(dst_lbl, "w") as f:
-                        f.write("\n".join(remapped) + "\n" if remapped else "")
+        for img_path, lbl_path in pairs:
+            copy_pair_safe(img_path, lbl_path, "gh", class_map)
 
     # === Count final dataset ===
     stats = {}

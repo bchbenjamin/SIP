@@ -94,8 +94,13 @@ for PI_HOST in raspberrypi.local 10.42.0.1 192.168.0.125; do
     echo "Trying to connect to Pi at $PI_HOST..."
     if ping -c 1 -W 2 "$PI_HOST" >/dev/null 2>&1; then
         echo "Pi is reachable at $PI_HOST! Fetching .env and keystores..."
-        sshpass -p '13122006' rsync -avz -e "ssh -o StrictHostKeyChecking=no" --include='*/' --include='*.env*' --include='*.jks' --include='*.properties' --exclude='*' "benjamin@$PI_HOST:/home/benjamin/SIP/" "$PROJECT_DIR/pi_backup_envs/" 2>/dev/null || \
-        sshpass -p '13122006' scp -o StrictHostKeyChecking=no -r "benjamin@$PI_HOST:/home/benjamin/SIP/android-frontend/.env*" "$PROJECT_DIR/pi_backup_envs/" 2>/dev/null || true
+        if [ -n "${PI_PASSWORD:-}" ]; then
+            sshpass -p "$PI_PASSWORD" rsync -avz -e "ssh -o StrictHostKeyChecking=no" --include='*/' --include='*.env*' --include='*.jks' --include='*.properties' --exclude='*' "benjamin@$PI_HOST:/home/benjamin/SIP/" "$PROJECT_DIR/pi_backup_envs/" 2>/dev/null || \
+            sshpass -p "$PI_PASSWORD" scp -o StrictHostKeyChecking=no -r "benjamin@$PI_HOST:/home/benjamin/SIP/android-frontend/.env*" "$PROJECT_DIR/pi_backup_envs/" 2>/dev/null || true
+        else
+            ssh -o StrictHostKeyChecking=no -o BatchMode=yes "benjamin@$PI_HOST" "echo Reachable via SSH key" 2>/dev/null && \
+            rsync -avz -e "ssh -o StrictHostKeyChecking=no" --include='*/' --include='*.env*' --include='*.jks' --include='*.properties' --exclude='*' "benjamin@$PI_HOST:/home/benjamin/SIP/" "$PROJECT_DIR/pi_backup_envs/" 2>/dev/null || true
+        fi
         break
     fi
 done
