@@ -1,0 +1,94 @@
+{
+  "manifest_version": "1.0.0",
+  "recovered_at": "2026-11-05T22:05:00+05:30",
+  "source_device": {
+    "hostname": "raspberrypi",
+    "architecture": "aarch64",
+    "model": "Raspberry Pi 5 Model B Rev 1.0",
+    "ip_address": "192.168.0.125",
+    "source_path": "/home/benjamin/runs/detect/train"
+  },
+  "model_architecture": "Ultralytics YOLOv8n",
+  "dataset": {
+    "name": "unified_weapon_dataset",
+    "num_classes": 2,
+    "classes": ["gun", "knife"],
+    "image_size": 416,
+    "target_epochs": 150,
+    "batch_size": 4
+  },
+  "checkpoints": [
+    {
+      "filename": "epoch145.pt",
+      "path": "artifacts/model-checkpoints/recovered/epoch145.pt",
+      "size_bytes": 12337855,
+      "sha256": "965aac342859795632bd7be872a3933bdf7737bd03f6ff2740072cc38b9c8b63",
+      "epoch": 145,
+      "metrics": {
+        "precision": 0.84096,
+        "recall": 0.70091,
+        "mAP50": 0.78516,
+        "mAP50_95": 0.58371
+      },
+      "description": "Canonical high-epoch checkpoint prior to run restart, preserving deep feature representations."
+    },
+    {
+      "filename": "last_backup.pt",
+      "path": "artifacts/model-checkpoints/recovered/last_backup.pt",
+      "size_bytes": 6243370,
+      "sha256": "b58bcfaf27affe711ed22d3a5e406653980d10ff7294d265741f3fefedcf4772",
+      "epoch": 150,
+      "metrics": {
+        "precision": 0.84541,
+        "recall": 0.70579,
+        "mAP50": 0.78575,
+        "mAP50_95": 0.58392
+      },
+      "description": "Pruned, standalone stripped deployment weights saved Nov 1 after full 150-epoch training completion."
+    },
+    {
+      "filename": "epoch80_best_map.pt",
+      "path": "artifacts/model-checkpoints/recovered/epoch80_best_map.pt",
+      "size_bytes": 12330111,
+      "sha256": "ac06e9281a7f20208549e739b9b1dd4f20e426b209d12027ac9122d920c80c90",
+      "epoch": 80,
+      "metrics": {
+        "precision": 0.84800,
+        "recall": 0.72536,
+        "mAP50": 0.81557,
+        "mAP50_95": 0.60915
+      },
+      "description": "Peak validation checkpoint achieving maximum mAP50 (0.81557) during full training run."
+    },
+    {
+      "filename": "epoch140.pt",
+      "path": "artifacts/model-checkpoints/recovered/epoch140.pt",
+      "size_bytes": 12337279,
+      "sha256": "832e3184654a4ce7f661cd715ad262052063818ec433872f296224bb7f129e87",
+      "epoch": 140,
+      "metrics": {
+        "precision": 0.80915,
+        "recall": 0.71755,
+        "mAP50": 0.78506,
+        "mAP50_95": 0.58260
+      },
+      "description": "Stable epoch 140 checkpoint preceding final convergence epochs."
+    },
+    {
+      "filename": "best_restarted_epoch2.pt",
+      "path": "artifacts/model-checkpoints/recovered/best_restarted_epoch2.pt",
+      "size_bytes": 12342527,
+      "sha256": "06f257719af4b3f4166d01e84d3d4c4c19ea57710975d746bfb22bdad9155578",
+      "epoch": 2,
+      "description": "Checkpoint produced when weapon-training service restarted and ran epochs 0-2."
+    },
+    {
+      "filename": "last_restarted_epoch2.pt",
+      "path": "artifacts/model-checkpoints/recovered/last_restarted_epoch2.pt",
+      "size_bytes": 12342527,
+      "sha256": "06f257719af4b3f4166d01e84d3d4c4c19ea57710975d746bfb22bdad9155578",
+      "epoch": 2,
+      "description": "Last checkpoint from the restarted run prior to emergency service freeze."
+    }
+  ]
+}

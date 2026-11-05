@@ -21,6 +21,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pt
+!artifacts/model-checkpoints/recovered/*.pt
+!node-backend/*.pt
 *.onnx
 *.engine
 .pytest_cache/
