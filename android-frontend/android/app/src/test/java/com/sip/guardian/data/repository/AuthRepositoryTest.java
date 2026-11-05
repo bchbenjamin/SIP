@@ -130,4 +130,100 @@ public class AuthRepositoryTest {
 
         repository.login("testuser", "password123");
     }
+
+    @Test
+    public void refreshSessionSuccessful() {
+        when(tokenStore.getRefreshToken()).thenReturn("existing-refresh-token");
+        when(tokenStore.getUserId()).thenReturn("user-123");
+        when(tokenStore.getUsername()).thenReturn("testuser");
+        when(tokenStore.getRole()).thenReturn("OPERATOR");
+
+        String jsonResponse = "{\n" +
+                "  \"token\": \"new-jwt-token\",\n" +
+                "  \"refreshToken\": \"new-refresh-token\",\n" +
+                "  \"expiresIn\": 900,\n" +
+                "  \"userId\": \"user-123\",\n" +
+                "  \"username\": \"testuser\",\n" +
+                "  \"role\": \"OPERATOR\"\n" +
+                "}";
+
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody(jsonResponse)
+                .addHeader("Content-Type", "application/json"));
+
+        User user = repository.refreshSession();
+
+        assertNotNull(user);
+        assertEquals("user-123", user.getId());
+        assertEquals("testuser", user.getUsername());
+        assertEquals(User.Role.OPERATOR, user.getRole());
+
+        verify(tokenStore).save("new-jwt-token", "new-refresh-token", 900);
+        verify(tokenStore).saveUser("user-123", "testuser", "OPERATOR");
+    }
+
+    @Test(expected = SecurityException.class)
+    public void refreshSessionNoTokenThrowsSecurityException() {
+        when(tokenStore.getRefreshToken()).thenReturn(null);
+        repository.refreshSession();
+    }
+
+    @Test(expected = SecurityException.class)
+    public void refreshSessionExpiredThrowsSecurityExceptionAndClearsStore() {
+        when(tokenStore.getRefreshToken()).thenReturn("expired-refresh-token");
+        server.enqueue(new MockResponse().setResponseCode(401));
+
+        try {
+            repository.refreshSession();
+        } finally {
+            verify(tokenStore).clear();
+        }
+    }
+
+    @Test
+    public void logoutClearsCredentialsEvenWhenServerFails() {
+        when(tokenStore.getAccessToken()).thenReturn("token-to-logout");
+        when(tokenStore.getRefreshToken()).thenReturn("refresh-to-logout");
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        repository.logout();
+
+        verify(tokenStore).clear();
+    }
+
+    @Test
+    public void subsequentLoginAfterLogoutSucceeds() {
+        // 1. Logout
+        when(tokenStore.getAccessToken()).thenReturn("old-token");
+        server.enqueue(new MockResponse().setResponseCode(200));
+        repository.logout();
+        verify(tokenStore).clear();
+
+        // 2. Subsequent Login
+        String jsonResponse = "{\n" +
+                "  \"token\": \"fresh-jwt-token\",\n" +
+                "  \"refreshToken\": \"fresh-refresh-token\",\n" +
+                "  \"expiresIn\": 900,\n" +
+                "  \"userId\": \"user-456\",\n" +
+                "  \"username\": \"newuser\",\n" +
+                "  \"role\": \"ADMIN\"\n" +
+                "}";
+
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody(jsonResponse)
+                .addHeader("Content-Type", "application/json"));
+
+        when(tokenStore.getUserId()).thenReturn("user-456");
+        when(tokenStore.getUsername()).thenReturn("newuser");
+        when(tokenStore.getRole()).thenReturn("ADMIN");
+
+        User user = repository.login("newuser", "securepass");
+        assertNotNull(user);
+        assertEquals("user-456", user.getId());
+        assertEquals("newuser", user.getUsername());
+        verify(tokenStore).save("fresh-jwt-token", "fresh-refresh-token", 900);
+        verify(tokenStore).saveUser("user-456", "newuser", "ADMIN");
+    }
 }

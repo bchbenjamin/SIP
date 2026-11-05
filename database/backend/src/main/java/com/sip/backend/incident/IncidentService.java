@@ -69,7 +69,12 @@ public class IncidentService {
             throw new IllegalArgumentException("from must be earlier than or equal to to");
         }
 
-        Page<Incident> result = incidentRepository.search(stateFilter, nodeId, typeFilter, fromDt, toDt, pr);
+        Page<Incident> result;
+        if (stateFilter == null && nodeId == null && typeFilter == null && fromDt == null && toDt == null) {
+            result = incidentRepository.findAllByOrderByCreatedAtDesc(pr);
+        } else {
+            result = incidentRepository.search(stateFilter, nodeId, typeFilter, fromDt, toDt, pr);
+        }
         List<IncidentDto> dtos = result.getContent().stream().map(mapper::toDto).toList();
 
         return new PageDto<>(dtos, result.getNumber(), result.getSize(), result.getTotalElements());

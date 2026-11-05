@@ -3,6 +3,7 @@ package com.sip.backend.controller;
 import com.sip.backend.dto.*;
 import com.sip.backend.entity.Incident;
 import com.sip.backend.entity.Incident.IncidentState;
+import com.sip.backend.incident.IncidentMapper;
 import com.sip.backend.incident.IncidentService;
 import com.sip.backend.repository.IncidentRepository;
 import com.sip.backend.service.PiIncidentIngestionService;
@@ -23,13 +24,16 @@ public class IncidentController {
     private final IncidentRepository incidentRepository;
     private final IncidentService incidentService;
     private final PiIncidentIngestionService ingestionService;
+    private final IncidentMapper mapper;
 
     public IncidentController(IncidentRepository incidentRepository,
                               IncidentService incidentService,
-                              PiIncidentIngestionService ingestionService) {
+                              PiIncidentIngestionService ingestionService,
+                              IncidentMapper mapper) {
         this.incidentRepository = incidentRepository;
         this.incidentService = incidentService;
         this.ingestionService = ingestionService;
+        this.mapper = mapper;
     }
 
     // ── Pi-facing REST ingestion (when MQTT is unavailable) ──────────────────
@@ -37,7 +41,7 @@ public class IncidentController {
     public ResponseEntity<?> ingestIncident(@RequestBody PiIncidentPayload payload) {
         try {
             Incident incident = ingestionService.ingestIncident(payload);
-            return ResponseEntity.status(201).body(incident);
+            return ResponseEntity.status(201).body(mapper.toDto(incident));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
