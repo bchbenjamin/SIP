@@ -1,52 +1,48 @@
-# ─── Build artifacts ───────────────────────────────────
-*.class
-*.jar
-*.war
-*.ear
-*.zip
-*.tar
-*.tar.gz
-
-# ─── IDE / OS ──────────────────────────────────────────
+# ─── OS / editor junk ───────────────────────────────────────
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
-*.bak
 *~
-.vscode/
 .idea/
-.claude/
+.vscode/
+*.iml
 
-# ─── Trigger / deploy stubs ────────────────────────────
-.trigger-redeploy
-
-# ─── Secret / local env files (keep local only) ────────
+# ─── Environment & secrets ──────────────────────────────────
 .env
 .env.*
 !.env.example
-**/.env
-**/.env.*
-!**/.env.example
+*.jks
+*.keystore
+pi_backup_envs/
 
-# ─── Gradle (backend) ──────────────────────────────────
-database/backend/build/
-database/backend/.gradle/
-database/backend/gradle/
-!database/backend/gradle/wrapper/gradle-wrapper.jar
+# ─── Python / ML ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pt
+*.onnx
+*.engine
+.pytest_cache/
+runs/
+wandb/
+.venv/
+venv/
+ENV/
 
-# ─── Node modules ──────────────────────────────────────
-**/node_modules/
-landing-page/.next/
-landing-page/.vercel/
+# ─── Node / Landing Page ───────────────────────────────────
+node_modules/
+dist/
+build/
+.next/
+.cache/
+.vercel/
 
-# ─── Android ───────────────────────────────────────────
-android-frontend/android/.gradle/
-android-frontend/android/build/
-android-frontend/android/captures/
-android-frontend/android/.cxx/
-android-frontend/android/*.jks
-android-frontend/android/*.keystore
+# ─── Java / Gradle / Android ────────────────────────────────
+.gradle/
+**/build/
+!releases/*.apk
+android-frontend/android/app/release/
 android-frontend/android/gradle.properties
 android-frontend/android/local.properties
 
@@ -58,4 +54,4 @@ node-backend/pi/datasets/
 
 # ─── Documentation builds ───────────────────────────────
 *.pdf
-*.docxdatabase/docs/CONTEXT.md
+*.docx

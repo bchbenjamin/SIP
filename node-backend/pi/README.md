@@ -9,7 +9,7 @@ Reference guide for all scripts on the Raspberry Pi 5 Edge Compute Core. All scr
 | WiFi (wlan0) | `192.168.0.125` | Normal operation |
 | USB gadget (usb0) | `10.42.0.1/24` | Recovery / no-network scenarios |
 
-Credentials: `benjamin` / `13122006`
+Credentials: <SSH_USERNAME> / <SSH_PASSWORD>
 
 ```bash
 # SSH onto Pi via WiFi
