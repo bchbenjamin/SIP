@@ -33,8 +33,6 @@ jobs:
         working-directory: android-frontend/android
         env:
           SIP_API_BASE_URL: "https://api.sip.bchbenjamin.in/"
-          SIP_KEYSTORE_PASSWORD: "S1pGuardian2026!"
-          SIP_KEY_PASSWORD: "S1pGuardian2026!"
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon clean testDebugUnitTest assembleRelease
@@ -43,6 +41,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sip-guardian-release-apk
-          path: android-frontend/android/app/build/outputs/apk/release/app-release.apk
+          path: android-frontend/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14

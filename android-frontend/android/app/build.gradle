@@ -16,10 +16,13 @@ android {
     compileSdk 35
     signingConfigs {
         release {
-            storeFile file('../' + (System.getenv('SIP_KEYSTORE_FILE') ?: 'sip-beta.jks'))
-            storePassword System.getenv('SIP_KEYSTORE_PASSWORD') ?: ''
-            keyAlias System.getenv('SIP_KEY_ALIAS') ?: 'sip-beta'
-            keyPassword System.getenv('SIP_KEY_PASSWORD') ?: ''
+            def kFile = file('../' + (System.getenv('SIP_KEYSTORE_FILE') ?: 'sip-beta.jks'))
+            if (kFile.exists()) {
+                storeFile kFile
+                storePassword System.getenv('SIP_KEYSTORE_PASSWORD') ?: 'S1pGuardian2026!'
+                keyAlias System.getenv('SIP_KEY_ALIAS') ?: 'sip-beta'
+                keyPassword System.getenv('SIP_KEY_PASSWORD') ?: 'S1pGuardian2026!'
+            }
         }
     }
     defaultConfig {
@@ -34,7 +37,9 @@ android {
     buildTypes {
         debug { buildConfigField "String", "API_BASE_URL", '"' + escapedBaseUrl + '"' }
         release {
-            signingConfig signingConfigs.release
+            if (signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled true
             shrinkResources true
             buildConfigField "String", "API_BASE_URL", '"' + escapedBaseUrl + '"'
