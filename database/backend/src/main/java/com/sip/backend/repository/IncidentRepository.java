@@ -3,14 +3,18 @@ package com.sip.backend.repository;
 import com.sip.backend.entity.Incident;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public interface IncidentRepository extends JpaRepository<Incident, String> {
+public interface IncidentRepository extends JpaRepository<Incident, String>, JpaSpecificationExecutor<Incident> {
     Page<Incident> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<Incident> findByStateOrderByCreatedAtDesc(Incident.IncidentState state, Pageable pageable);
@@ -19,23 +23,35 @@ public interface IncidentRepository extends JpaRepository<Incident, String> {
 
     Page<Incident> findByThreatTypeOrderByCreatedAtDesc(Incident.ThreatType threatType, Pageable pageable);
 
-    @Query("""
-        SELECT i FROM Incident i
-        WHERE (:state IS NULL OR i.state = :state)
-          AND (:nodeId IS NULL OR i.node.id = :nodeId)
-          AND (:threatType IS NULL OR i.threatType = :threatType)
-          AND (:from IS NULL OR i.createdAt >= :from)
-          AND (:to IS NULL OR i.createdAt <= :to)
-        ORDER BY i.createdAt DESC
-        """)
-    Page<Incident> search(
-        @Param("state") Incident.IncidentState state,
-        @Param("nodeId") String nodeId,
-        @Param("threatType") Incident.ThreatType threatType,
-        @Param("from") OffsetDateTime from,
-        @Param("to") OffsetDateTime to,
+    default Page<Incident> search(
+        Incident.IncidentState state,
+        String nodeId,
+        Incident.ThreatType threatType,
+        OffsetDateTime from,
+        OffsetDateTime to,
         Pageable pageable
-    );
+    ) {
+        Specification<Incident> spec = (root, query, cb) -> {
+            var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
+            if (state != null) {
+                predicates.add(cb.equal(root.get("state"), state));
+            }
+            if (nodeId != null && !nodeId.isBlank()) {
+                predicates.add(cb.equal(root.get("node").get("id"), nodeId));
+            }
+            if (threatType != null) {
+                predicates.add(cb.equal(root.get("threatType"), threatType));
+            }
+            if (from != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), to));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        return findAll(spec, pageable);
+    }
 
     /** Limits dashboard results in SQL instead of loading the full incidents table. */
     List<Incident> findTop10ByOrderByCreatedAtDesc();
