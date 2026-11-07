@@ -1,7 +1,12 @@
 package com.sip.guardian.data.remote.dto;
 
+import com.google.gson.annotations.SerializedName;
+
 public class LoginRequest {
+    @SerializedName("username")
     public String username;
+
+    @SerializedName("password")
     public String password;
 
     public LoginRequest(String username, String password) {

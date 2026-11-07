@@ -34,7 +34,9 @@ public class RefreshTokenService {
         rt.tokenHash = hash(tokenValue);
         rt.expiresAt = OffsetDateTime.now().plusSeconds(jwtProperties.getRefreshTokenExpirySeconds());
         rt.rawToken = tokenValue;
-        return refreshTokenRepository.save(rt);
+        RefreshToken saved = refreshTokenRepository.save(rt);
+        saved.rawToken = tokenValue;
+        return saved;
     }
 
     @Transactional

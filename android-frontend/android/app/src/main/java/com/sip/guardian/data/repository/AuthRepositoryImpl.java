@@ -86,9 +86,17 @@ public class AuthRepositoryImpl implements AuthRepository {
     }
 
     private void persist(LoginResponse tokens) {
-        if (tokens == null || tokens.token == null || tokens.refreshToken == null
-                || tokens.userId == null || tokens.username == null || tokens.role == null) {
-            throw new IllegalStateException("Backend returned an incomplete login response");
+        if (tokens == null) {
+            throw new IllegalStateException("Backend returned an empty login response");
+        }
+        if (tokens.token == null || tokens.token.isBlank()) {
+            throw new IllegalStateException("Backend returned a missing access token");
+        }
+        if (tokens.refreshToken == null || tokens.refreshToken.isBlank()) {
+            throw new IllegalStateException("Backend returned a missing refresh token");
+        }
+        if (tokens.userId == null || tokens.username == null || tokens.role == null) {
+            throw new IllegalStateException("Backend returned incomplete user profile data");
         }
         tokenStore.save(tokens.token, tokens.refreshToken, tokens.expiresIn);
         tokenStore.saveUser(tokens.userId, tokens.username, tokens.role);

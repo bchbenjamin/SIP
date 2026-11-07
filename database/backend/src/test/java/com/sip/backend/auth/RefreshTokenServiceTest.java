@@ -27,18 +27,28 @@ class RefreshTokenServiceTest {
     @Test
     void createForUserReturnsOpaqueTokenButPersistsOnlyHash() {
         when(properties.getRefreshTokenExpirySeconds()).thenReturn(3600L);
+        // Simulate JPA merge behavior where transient fields (rawToken) are not copied to the returned managed instance
         when(repository.save(any(RefreshToken.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    RefreshToken arg = invocation.getArgument(0);
+                    RefreshToken copy = new RefreshToken();
+                    copy.id = arg.id;
+                    copy.user = arg.user;
+                    copy.tokenHash = arg.tokenHash;
+                    copy.expiresAt = arg.expiresAt;
+                    copy.rawToken = null; // Transient field dropped by merge
+                    return copy;
+                });
         User user = new User("u-1", "operator", "hash", User.Role.OPERATOR);
 
         RefreshToken result = service.createForUser(user);
 
-        assertNotNull(result.rawToken);
+        assertNotNull(result.rawToken, "rawToken must not be null after creation");
         assertFalse(result.rawToken.isBlank());
         assertNotEquals(result.rawToken, result.tokenHash);
         assertEquals(user, result.user);
         assertTrue(result.expiresAt.isAfter(OffsetDateTime.now()));
-        verify(repository).save(result);
+        verify(repository).save(any(RefreshToken.class));
     }
 
     @Test

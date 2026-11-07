@@ -1,11 +1,12 @@
 package com.sip.backend.entity;
 
 import jakarta.persistence.*;
+import org.springframework.data.domain.Persistable;
 import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "refresh_tokens")
-public class RefreshToken {
+public class RefreshToken implements Persistable<String> {
     @Id
     public String id;
 
@@ -29,9 +30,28 @@ public class RefreshToken {
     @Transient
     public String rawToken;
 
+    @Transient
+    private boolean isNew = true;
+
+    @Override
+    public String getId() {
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
     @PrePersist
     public void prePersist() {
         createdAt = OffsetDateTime.now();
+    }
+
+    @PostPersist
+    @PostLoad
+    void markNotNew() {
+        this.isNew = false;
     }
 
     public boolean isExpired() {
